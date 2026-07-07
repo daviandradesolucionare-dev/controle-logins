@@ -83,6 +83,13 @@ export function AppNav() {
           >
             Novo Cadastro
           </Link>
+          <Link
+            to="/advogados-padrao"
+            activeProps={{ className: "bg-accent text-accent-foreground" }}
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            Advogados Padrão
+          </Link>
         </nav>
 
         <div className="ml-auto flex items-center gap-2">

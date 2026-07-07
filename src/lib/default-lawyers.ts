@@ -1,5 +1,5 @@
-// Lista padrão de 29 advogados carregada ao criar um novo tribunal.
-// TODO: substitua pelos nomes reais utilizados no sistema original.
+// Lista padrão (inicial) de advogados carregada ao criar um novo tribunal.
+// Pode ser editada em tempo real na tela "Advogados Padrão" (persistência em localStorage).
 export const DEFAULT_LAWYERS: string[] = [
   "Ana Beatriz Almeida",
   "Bruno Carvalho Ribeiro",
@@ -31,3 +31,32 @@ export const DEFAULT_LAWYERS: string[] = [
   "Bernardo Coelho Dias",
   "Cecília Dias Espíndola",
 ];
+
+const STORAGE_KEY = "default-lawyers-v1";
+
+export function getDefaultLawyers(): string[] {
+  if (typeof window === "undefined") return [...DEFAULT_LAWYERS];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [...DEFAULT_LAWYERS];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((x) => typeof x === "string")) {
+      return parsed;
+    }
+    return [...DEFAULT_LAWYERS];
+  } catch {
+    return [...DEFAULT_LAWYERS];
+  }
+}
+
+export function saveDefaultLawyers(list: string[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+export function resetDefaultLawyers(): string[] {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(STORAGE_KEY);
+  }
+  return [...DEFAULT_LAWYERS];
+}

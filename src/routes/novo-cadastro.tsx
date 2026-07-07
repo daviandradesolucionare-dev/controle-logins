@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Loader2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { DEFAULT_LAWYERS } from "@/lib/default-lawyers";
+import { getDefaultLawyers } from "@/lib/default-lawyers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,6 +20,7 @@ function NovoCadastro() {
   const [sigla, setSigla] = useState("");
   const [carregarPadrao, setCarregarPadrao] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [defaults] = useState<string[]>(() => getDefaultLawyers());
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +42,10 @@ function NovoCadastro() {
     }
 
     if (carregarPadrao) {
-      const rows = DEFAULT_LAWYERS.map((n) => ({
+      const rows = defaults.map((n) => ({
         tribunal_id: tribunal.id,
         nome: n,
-        status: "",
+        status: "Não enviado",
       }));
       const { error: aErr } = await supabase.from("tabelas_advogados").insert(rows);
       if (aErr) {
@@ -58,7 +59,7 @@ function NovoCadastro() {
     setSaving(false);
     toast.success(
       carregarPadrao
-        ? `Tribunal criado com ${DEFAULT_LAWYERS.length} advogados padrão.`
+        ? `Tribunal criado com ${defaults.length} advogados padrão.`
         : "Tribunal criado.",
     );
     navigate({ to: "/tribunais" });
@@ -70,7 +71,7 @@ function NovoCadastro() {
         <h1 className="text-3xl font-bold tracking-tight">Novo Cadastro</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Cadastre um novo tribunal e, opcionalmente, carregue a lista padrão de{" "}
-          {DEFAULT_LAWYERS.length} advogados.
+          {defaults.length} advogados.
         </p>
       </div>
 
@@ -109,10 +110,10 @@ function NovoCadastro() {
               />
               <label htmlFor="carregar-padrao" className="text-sm">
                 <span className="font-medium">
-                  Carregar lista padrão de {DEFAULT_LAWYERS.length} advogados
+                  Carregar lista padrão de {defaults.length} advogados
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  Os advogados são inseridos com status vazio e podem ser editados depois.
+                  Os advogados são inseridos com status "Não enviado" e podem ser editados depois.
                 </p>
               </label>
             </div>
@@ -140,12 +141,13 @@ function NovoCadastro() {
           <CardHeader>
             <CardTitle className="text-base">Prévia da lista padrão</CardTitle>
             <CardDescription>
-              Estes {DEFAULT_LAWYERS.length} advogados serão inseridos automaticamente.
+              Estes {defaults.length} advogados serão inseridos automaticamente. Edite em
+              "Advogados Padrão".
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="grid list-decimal grid-cols-1 gap-1 pl-5 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
-              {DEFAULT_LAWYERS.map((n) => (
+              {defaults.map((n) => (
                 <li key={n}>{n}</li>
               ))}
             </ol>
