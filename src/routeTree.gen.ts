@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TribunaisRouteImport } from './routes/tribunais'
+import { Route as NovoCadastroRouteImport } from './routes/novo-cadastro'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TribunaisRoute = TribunaisRouteImport.update({
   id: '/tribunais',
   path: '/tribunais',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NovoCadastroRoute = NovoCadastroRouteImport.update({
+  id: '/novo-cadastro',
+  path: '/novo-cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/novo-cadastro': typeof NovoCadastroRoute
   '/tribunais': typeof TribunaisRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/novo-cadastro': typeof NovoCadastroRoute
   '/tribunais': typeof TribunaisRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/novo-cadastro': typeof NovoCadastroRoute
   '/tribunais': typeof TribunaisRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tribunais'
+  fullPaths: '/' | '/novo-cadastro' | '/tribunais'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tribunais'
-  id: '__root__' | '/' | '/tribunais'
+  to: '/' | '/novo-cadastro' | '/tribunais'
+  id: '__root__' | '/' | '/novo-cadastro' | '/tribunais'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  NovoCadastroRoute: typeof NovoCadastroRoute
   TribunaisRoute: typeof TribunaisRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/tribunais'
       fullPath: '/tribunais'
       preLoaderRoute: typeof TribunaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/novo-cadastro': {
+      id: '/novo-cadastro'
+      path: '/novo-cadastro'
+      fullPath: '/novo-cadastro'
+      preLoaderRoute: typeof NovoCadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  NovoCadastroRoute: NovoCadastroRoute,
   TribunaisRoute: TribunaisRoute,
 }
 export const routeTree = rootRouteImport
