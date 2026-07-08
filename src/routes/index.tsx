@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, CheckCircle2, Clock, XCircle, ArrowRight, Loader2 } from "lucide-react";
-import { supabase, type Advogado, type Tribunal, type StatusAdvogado } from "@/lib/supabase";
+import { supabase, type Advogado, type Tribunal } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
