@@ -8,6 +8,12 @@ import {
   Search,
   X,
   Loader2,
+  Pencil,
+  Check,
+  CheckCircle2,
+  Clock3,
+  ArrowUpAZ,
+  ArrowDownAZ,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -60,6 +66,13 @@ export const Route = createFileRoute("/tribunais")({
   component: TribunaisPage,
 });
 
+type TribunalStatus = "Concluído" | "Pendente" | "Vazio";
+
+function computeTribunalStatus(advs: Advogado[]): TribunalStatus {
+  if (advs.length === 0) return "Vazio";
+  return advs.every((a) => a.status === "Ok") ? "Concluído" : "Pendente";
+}
+
 function StatusBadge({ status }: { status: StatusAdvogado }) {
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
   const styles: Record<Exclude<StatusAdvogado, "">, string> = {
@@ -83,6 +96,7 @@ function TribunalCard({
   onDeleteAdvogado,
   onDeleteTribunal,
   onAddAdvogado,
+  onEditTribunal,
   expanded,
   onToggle,
 }: {
@@ -93,12 +107,16 @@ function TribunalCard({
   onDeleteAdvogado: (adv: Advogado) => void;
   onDeleteTribunal: (t: Tribunal) => void;
   onAddAdvogado: (t: Tribunal) => void;
+  onEditTribunal: (t: Tribunal) => void;
   expanded: boolean;
   onToggle: () => void;
 }) {
   const filtered = filtroAdvogado
     ? advogados.filter((a) => a.nome.toLowerCase().includes(filtroAdvogado.toLowerCase()))
     : advogados;
+  const okCount = advogados.filter((a) => a.status === "Ok").length;
+  const total = advogados.length;
+  const status = computeTribunalStatus(advogados);
 
   return (
     <Card className="overflow-hidden">
@@ -113,18 +131,36 @@ function TribunalCard({
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex flex-1 flex-wrap items-center gap-2">
             <span className="font-semibold">{tribunal.nome}</span>
             {tribunal.sigla && (
               <Badge variant="secondary" className="text-xs">
                 {tribunal.sigla}
               </Badge>
             )}
+            {status === "Concluído" && (
+              <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" variant="outline">
+                <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
+              </Badge>
+            )}
+            {status === "Pendente" && (
+              <Badge className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400" variant="outline">
+                <Clock3 className="mr-1 h-3 w-3" /> Pendente
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">
-              {advogados.length} advogado{advogados.length !== 1 ? "s" : ""}
+              {total} advogado{total !== 1 ? "s" : ""} · {okCount}/{total} OK
             </span>
           </div>
         </button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => onEditTribunal(tribunal)}
+          aria-label="Editar tribunal"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -228,6 +264,15 @@ function TribunaisPage() {
   const [addAdvStatus, setAddAdvStatus] = useState<StatusAdvogado>("");
   const [addAdvSaving, setAddAdvSaving] = useState(false);
 
+  const [filtroStatus, setFiltroStatus] = useState<"todos" | "Concluído" | "Pendente">("todos");
+  const [ordem, setOrdem] = useState<"az" | "za">("az");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTribunal, setEditTribunal] = useState<Tribunal | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editSigla, setEditSigla] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   const loadAll = async () => {
     setLoading(true);
     const [tRes, aRes] = await Promise.all([
@@ -269,8 +314,16 @@ function TribunaisPage() {
         (advByTribunal.get(t.id) ?? []).some((a) => a.nome.toLowerCase().includes(q)),
       );
     }
-    return list;
-  }, [tribunais, filtroTribunal, filtroAdvogado, advByTribunal]);
+    if (filtroStatus !== "todos") {
+      list = list.filter(
+        (t) => computeTribunalStatus(advByTribunal.get(t.id) ?? []) === filtroStatus,
+      );
+    }
+    const sorted = [...list].sort((a, b) =>
+      ordem === "az" ? a.nome.localeCompare(b.nome, "pt-BR") : b.nome.localeCompare(a.nome, "pt-BR"),
+    );
+    return sorted;
+  }, [tribunais, filtroTribunal, filtroAdvogado, filtroStatus, ordem, advByTribunal]);
 
   const aplicarFiltros = () => {
     setFiltroTribunal(filtroTribunalInput.trim());
@@ -352,6 +405,37 @@ function TribunaisPage() {
     setAddAdvOpen(true);
   };
 
+  const openEditTribunal = (t: Tribunal) => {
+    setEditTribunal(t);
+    setEditNome(t.nome);
+    setEditSigla(t.sigla ?? "");
+    setEditOpen(true);
+  };
+
+  const submitEditTribunal = async () => {
+    if (!editTribunal || !editNome.trim()) {
+      toast.error("Informe o nome do tribunal.");
+      return;
+    }
+    setEditSaving(true);
+    const nome = editNome.trim();
+    const sigla = editSigla.trim() || null;
+    const { data, error } = await supabase
+      .from("tabelas_tribunais")
+      .update({ nome, sigla })
+      .eq("id", editTribunal.id)
+      .select()
+      .single();
+    setEditSaving(false);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+      return;
+    }
+    setTribunais((prev) => prev.map((t) => (t.id === editTribunal.id ? (data as Tribunal) : t)));
+    setEditOpen(false);
+    toast.success("Tribunal atualizado.");
+  };
+
   const submitAddAdvogado = async () => {
     if (!addAdvTribunal || !addAdvNome.trim()) {
       toast.error("Informe o nome do advogado.");
@@ -391,7 +475,7 @@ function TribunaisPage() {
       </div>
 
       <Card className="mb-6 p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Filtrar por tribunal
@@ -414,6 +498,35 @@ function TribunaisPage() {
               onKeyDown={(e) => e.key === "Enter" && aplicarFiltros()}
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Status do tribunal
+            </label>
+            <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="Concluído">Concluído</SelectItem>
+                <SelectItem value="Pendente">Pendente</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Ordenar
+            </label>
+            <Select value={ordem} onValueChange={(v) => setOrdem(v as "az" | "za")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="az">A → Z</SelectItem>
+                <SelectItem value="za">Z → A</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={aplicarFiltros}>
@@ -423,6 +536,18 @@ function TribunaisPage() {
           <Button variant="outline" onClick={limparFiltros}>
             <X className="mr-2 h-4 w-4" />
             Limpar Filtros
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setOrdem((o) => (o === "az" ? "za" : "az"))}
+            title="Alternar ordenação"
+          >
+            {ordem === "az" ? (
+              <ArrowUpAZ className="mr-2 h-4 w-4" />
+            ) : (
+              <ArrowDownAZ className="mr-2 h-4 w-4" />
+            )}
+            {ordem === "az" ? "A-Z" : "Z-A"}
           </Button>
         </div>
       </Card>
@@ -451,6 +576,7 @@ function TribunaisPage() {
               onDeleteAdvogado={(a) => setDeleteAdvogado(a)}
               onDeleteTribunal={(x) => setDeleteTribunal(x)}
               onAddAdvogado={openAddAdvogado}
+              onEditTribunal={openEditTribunal}
             />
           ))}
         </div>
@@ -543,6 +669,46 @@ function TribunaisPage() {
             <Button onClick={submitAddAdvogado} disabled={addAdvSaving}>
               {addAdvSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal editar tribunal */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar tribunal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nome</label>
+              <Input
+                value={editNome}
+                onChange={(e) => setEditNome(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Sigla</label>
+              <Input
+                value={editSigla}
+                onChange={(e) => setEditSigla(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submitEditTribunal} disabled={editSaving}>
+              {editSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
