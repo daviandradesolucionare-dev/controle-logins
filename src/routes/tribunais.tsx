@@ -14,6 +14,7 @@ import {
   Clock3,
   ArrowUpAZ,
   ArrowDownAZ,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -117,27 +118,41 @@ function TribunalCard({
   const okCount = advogados.filter((a) => a.status === "Ok").length;
   const total = advogados.length;
   const status = computeTribunalStatus(advogados);
+  const dataCadastro = tribunal.created_at
+    ? new Date(tribunal.created_at).toLocaleDateString("pt-BR")
+    : "—";
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-3 border-b px-4 py-3">
-        <button
-          onClick={onToggle}
-          className="flex flex-1 items-center gap-2 text-left"
-          aria-label={expanded ? "Recolher" : "Expandir"}
-        >
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <div className="flex flex-1 flex-wrap items-center gap-2">
-            <span className="font-semibold">{tribunal.nome}</span>
-            {tribunal.sigla && (
+      <div className="border-b px-4 py-3">
+        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] md:gap-4">
+          {/* Coluna 1: Nome (clicável para expandir) */}
+          <button
+            onClick={onToggle}
+            className="flex min-w-0 items-center gap-2 text-left"
+            aria-label={expanded ? "Recolher" : "Expandir"}
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate font-semibold">{tribunal.nome}</span>
+          </button>
+
+          {/* Coluna 2: Sigla */}
+          <div className="md:min-w-[80px]">
+            {tribunal.sigla ? (
               <Badge variant="secondary" className="text-xs">
                 {tribunal.sigla}
               </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground md:hidden">Sem sigla</span>
             )}
+          </div>
+
+          {/* Coluna 3: Status */}
+          <div className="md:min-w-[130px]">
             {status === "Concluído" && (
               <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" variant="outline">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
@@ -148,36 +163,50 @@ function TribunalCard({
                 <Clock3 className="mr-1 h-3 w-3" /> Pendente
               </Badge>
             )}
-            <span className="text-xs text-muted-foreground">
-              {total} advogado{total !== 1 ? "s" : ""} · {okCount}/{total} OK
-            </span>
+            {status === "Vazio" && (
+              <Badge variant="outline" className="text-muted-foreground">
+                Vazio
+              </Badge>
+            )}
           </div>
-        </button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onEditTribunal(tribunal)}
-          aria-label="Editar tribunal"
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onAddAdvogado(tribunal)}
-          className="hidden sm:inline-flex"
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" /> Advogado
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onDeleteTribunal(tribunal)}
-          aria-label="Excluir tribunal"
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+
+          {/* Coluna 4: Contador + data */}
+          <div className="flex flex-col text-xs text-muted-foreground md:min-w-[140px] md:text-right">
+            <span>
+              {okCount}/{total} OK · {total} advogado{total !== 1 ? "s" : ""}
+            </span>
+            <span className="text-[11px] opacity-75">Cadastrado em {dataCadastro}</span>
+          </div>
+
+          {/* Coluna 5: Ações */}
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onEditTribunal(tribunal)}
+              aria-label="Editar tribunal"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onAddAdvogado(tribunal)}
+              className="hidden sm:inline-flex"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> Advogado
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onDeleteTribunal(tribunal)}
+              aria-label="Excluir tribunal"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {expanded && (
@@ -265,7 +294,9 @@ function TribunaisPage() {
   const [addAdvSaving, setAddAdvSaving] = useState(false);
 
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "Concluído" | "Pendente">("todos");
-  const [ordem, setOrdem] = useState<"az" | "za">("az");
+  const [ordem, setOrdem] = useState<"az" | "za" | "recent" | "old">("az");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTribunal, setEditTribunal] = useState<Tribunal | null>(null);
@@ -276,8 +307,14 @@ function TribunaisPage() {
   const loadAll = async () => {
     setLoading(true);
     const [tRes, aRes] = await Promise.all([
-      supabase.from("tabelas_tribunais").select("*").order("nome"),
-      supabase.from("tabelas_advogados").select("*").order("nome"),
+      supabase
+        .from("tabelas_tribunais")
+        .select("id,nome,sigla,created_at")
+        .order("nome"),
+      supabase
+        .from("tabelas_advogados")
+        .select("id,tribunal_id,nome,status,created_at")
+        .order("nome"),
     ]);
     if (tRes.error) toast.error("Erro ao carregar tribunais: " + tRes.error.message);
     if (aRes.error) toast.error("Erro ao carregar advogados: " + aRes.error.message);
@@ -319,11 +356,27 @@ function TribunaisPage() {
         (t) => computeTribunalStatus(advByTribunal.get(t.id) ?? []) === filtroStatus,
       );
     }
-    const sorted = [...list].sort((a, b) =>
-      ordem === "az" ? a.nome.localeCompare(b.nome, "pt-BR") : b.nome.localeCompare(a.nome, "pt-BR"),
-    );
+    const sorted = [...list].sort((a, b) => {
+      if (ordem === "az") return a.nome.localeCompare(b.nome, "pt-BR");
+      if (ordem === "za") return b.nome.localeCompare(a.nome, "pt-BR");
+      const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ordem === "recent" ? db - da : da - db;
+    });
     return sorted;
   }, [tribunais, filtroTribunal, filtroAdvogado, filtroStatus, ordem, advByTribunal]);
+
+  // Reset página quando filtros/ordem mudam
+  useEffect(() => {
+    setPage(1);
+  }, [filtroTribunal, filtroAdvogado, filtroStatus, ordem]);
+
+  const totalPages = Math.max(1, Math.ceil(tribunaisFiltrados.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginados = useMemo(
+    () => tribunaisFiltrados.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [tribunaisFiltrados, currentPage],
+  );
 
   const aplicarFiltros = () => {
     setFiltroTribunal(filtroTribunalInput.trim());
@@ -517,13 +570,15 @@ function TribunaisPage() {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Ordenar
             </label>
-            <Select value={ordem} onValueChange={(v) => setOrdem(v as "az" | "za")}>
+            <Select value={ordem} onValueChange={(v) => setOrdem(v as typeof ordem)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="az">A → Z</SelectItem>
                 <SelectItem value="za">Z → A</SelectItem>
+                <SelectItem value="recent">Mais recentes primeiro</SelectItem>
+                <SelectItem value="old">Mais antigos primeiro</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -552,7 +607,7 @@ function TribunaisPage() {
         </div>
       </Card>
 
-      {loading ? (
+        {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
         </div>
@@ -563,8 +618,9 @@ function TribunaisPage() {
             : "Nenhum tribunal corresponde aos filtros."}
         </Card>
       ) : (
+        <>
         <div className="space-y-3">
-          {tribunaisFiltrados.map((t) => (
+          {paginados.map((t) => (
             <TribunalCard
               key={t.id}
               tribunal={t}
@@ -580,6 +636,37 @@ function TribunaisPage() {
             />
           ))}
         </div>
+        {totalPages > 1 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, tribunaisFiltrados.length)} de{" "}
+              {tribunaisFiltrados.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={currentPage === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Próxima <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* Modal excluir tribunal */}
