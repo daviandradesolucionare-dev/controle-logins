@@ -294,7 +294,9 @@ function TribunaisPage() {
   const [addAdvSaving, setAddAdvSaving] = useState(false);
 
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "Concluído" | "Pendente">("todos");
-  const [ordem, setOrdem] = useState<"az" | "za">("az");
+  const [ordem, setOrdem] = useState<"az" | "za" | "recent" | "old">("az");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTribunal, setEditTribunal] = useState<Tribunal | null>(null);
@@ -305,8 +307,14 @@ function TribunaisPage() {
   const loadAll = async () => {
     setLoading(true);
     const [tRes, aRes] = await Promise.all([
-      supabase.from("tabelas_tribunais").select("*").order("nome"),
-      supabase.from("tabelas_advogados").select("*").order("nome"),
+      supabase
+        .from("tabelas_tribunais")
+        .select("id,nome,sigla,created_at")
+        .order("nome"),
+      supabase
+        .from("tabelas_advogados")
+        .select("id,tribunal_id,nome,status,created_at")
+        .order("nome"),
     ]);
     if (tRes.error) toast.error("Erro ao carregar tribunais: " + tRes.error.message);
     if (aRes.error) toast.error("Erro ao carregar advogados: " + aRes.error.message);
@@ -348,11 +356,27 @@ function TribunaisPage() {
         (t) => computeTribunalStatus(advByTribunal.get(t.id) ?? []) === filtroStatus,
       );
     }
-    const sorted = [...list].sort((a, b) =>
-      ordem === "az" ? a.nome.localeCompare(b.nome, "pt-BR") : b.nome.localeCompare(a.nome, "pt-BR"),
-    );
+    const sorted = [...list].sort((a, b) => {
+      if (ordem === "az") return a.nome.localeCompare(b.nome, "pt-BR");
+      if (ordem === "za") return b.nome.localeCompare(a.nome, "pt-BR");
+      const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ordem === "recent" ? db - da : da - db;
+    });
     return sorted;
   }, [tribunais, filtroTribunal, filtroAdvogado, filtroStatus, ordem, advByTribunal]);
+
+  // Reset página quando filtros/ordem mudam
+  useEffect(() => {
+    setPage(1);
+  }, [filtroTribunal, filtroAdvogado, filtroStatus, ordem]);
+
+  const totalPages = Math.max(1, Math.ceil(tribunaisFiltrados.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginados = useMemo(
+    () => tribunaisFiltrados.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [tribunaisFiltrados, currentPage],
+  );
 
   const aplicarFiltros = () => {
     setFiltroTribunal(filtroTribunalInput.trim());
@@ -553,6 +577,8 @@ function TribunaisPage() {
               <SelectContent>
                 <SelectItem value="az">A → Z</SelectItem>
                 <SelectItem value="za">Z → A</SelectItem>
+                <SelectItem value="recent">Mais recentes primeiro</SelectItem>
+                <SelectItem value="old">Mais antigos primeiro</SelectItem>
               </SelectContent>
             </Select>
           </div>
