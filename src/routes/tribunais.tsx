@@ -570,7 +570,7 @@ function TribunaisPage() {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Ordenar
             </label>
-            <Select value={ordem} onValueChange={(v) => setOrdem(v as "az" | "za")}>
+            <Select value={ordem} onValueChange={(v) => setOrdem(v as typeof ordem)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -607,7 +607,7 @@ function TribunaisPage() {
         </div>
       </Card>
 
-      {loading ? (
+        {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
         </div>
@@ -618,8 +618,9 @@ function TribunaisPage() {
             : "Nenhum tribunal corresponde aos filtros."}
         </Card>
       ) : (
+        <>
         <div className="space-y-3">
-          {tribunaisFiltrados.map((t) => (
+          {paginados.map((t) => (
             <TribunalCard
               key={t.id}
               tribunal={t}
@@ -635,6 +636,37 @@ function TribunaisPage() {
             />
           ))}
         </div>
+        {totalPages > 1 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, tribunaisFiltrados.length)} de{" "}
+              {tribunaisFiltrados.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={currentPage === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={currentPage === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Próxima <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* Modal excluir tribunal */}
