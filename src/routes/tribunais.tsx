@@ -14,6 +14,7 @@ import {
   Clock3,
   ArrowUpAZ,
   ArrowDownAZ,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -117,27 +118,41 @@ function TribunalCard({
   const okCount = advogados.filter((a) => a.status === "Ok").length;
   const total = advogados.length;
   const status = computeTribunalStatus(advogados);
+  const dataCadastro = tribunal.created_at
+    ? new Date(tribunal.created_at).toLocaleDateString("pt-BR")
+    : "—";
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center gap-3 border-b px-4 py-3">
-        <button
-          onClick={onToggle}
-          className="flex flex-1 items-center gap-2 text-left"
-          aria-label={expanded ? "Recolher" : "Expandir"}
-        >
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <div className="flex flex-1 flex-wrap items-center gap-2">
-            <span className="font-semibold">{tribunal.nome}</span>
-            {tribunal.sigla && (
+      <div className="border-b px-4 py-3">
+        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] md:gap-4">
+          {/* Coluna 1: Nome (clicável para expandir) */}
+          <button
+            onClick={onToggle}
+            className="flex min-w-0 items-center gap-2 text-left"
+            aria-label={expanded ? "Recolher" : "Expandir"}
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate font-semibold">{tribunal.nome}</span>
+          </button>
+
+          {/* Coluna 2: Sigla */}
+          <div className="md:min-w-[80px]">
+            {tribunal.sigla ? (
               <Badge variant="secondary" className="text-xs">
                 {tribunal.sigla}
               </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground md:hidden">Sem sigla</span>
             )}
+          </div>
+
+          {/* Coluna 3: Status */}
+          <div className="md:min-w-[130px]">
             {status === "Concluído" && (
               <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" variant="outline">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
@@ -148,36 +163,50 @@ function TribunalCard({
                 <Clock3 className="mr-1 h-3 w-3" /> Pendente
               </Badge>
             )}
-            <span className="text-xs text-muted-foreground">
-              {total} advogado{total !== 1 ? "s" : ""} · {okCount}/{total} OK
-            </span>
+            {status === "Vazio" && (
+              <Badge variant="outline" className="text-muted-foreground">
+                Vazio
+              </Badge>
+            )}
           </div>
-        </button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onEditTribunal(tribunal)}
-          aria-label="Editar tribunal"
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onAddAdvogado(tribunal)}
-          className="hidden sm:inline-flex"
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" /> Advogado
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onDeleteTribunal(tribunal)}
-          aria-label="Excluir tribunal"
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+
+          {/* Coluna 4: Contador + data */}
+          <div className="flex flex-col text-xs text-muted-foreground md:min-w-[140px] md:text-right">
+            <span>
+              {okCount}/{total} OK · {total} advogado{total !== 1 ? "s" : ""}
+            </span>
+            <span className="text-[11px] opacity-75">Cadastrado em {dataCadastro}</span>
+          </div>
+
+          {/* Coluna 5: Ações */}
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onEditTribunal(tribunal)}
+              aria-label="Editar tribunal"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onAddAdvogado(tribunal)}
+              className="hidden sm:inline-flex"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> Advogado
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onDeleteTribunal(tribunal)}
+              aria-label="Excluir tribunal"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {expanded && (
