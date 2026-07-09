@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, Building2, Users, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { getDefaultLawyers } from "@/lib/default-lawyers";
@@ -139,18 +139,37 @@ function NovoCadastro() {
       {carregarPadrao && (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="text-base">Prévia da lista padrão</CardTitle>
-            <CardDescription>
-              Estes {defaults.length} advogados serão inseridos automaticamente. Edite em
-              "Advogados Padrão".
-            </CardDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4 text-primary" />
+                  Prévia da lista padrão
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Estes advogados serão inseridos automaticamente. Edite em{" "}
+                  <span className="font-medium text-foreground">Advogados Padrão</span>.
+                </CardDescription>
+              </div>
+              <span className="shrink-0 rounded-full border bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                {defaults.length} advogados
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
-            <ol className="grid list-decimal grid-cols-1 gap-1 pl-5 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-3">
-              {defaults.map((n) => (
-                <li key={n}>{n}</li>
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {defaults.map((n, i) => (
+                <li
+                  key={n}
+                  className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:bg-accent/50"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold tabular-nums text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground">
+                    {i + 1}
+                  </span>
+                  <UserRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">{n}</span>
+                </li>
               ))}
-            </ol>
+            </ul>
           </CardContent>
         </Card>
       )}
