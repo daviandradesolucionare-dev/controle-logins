@@ -1,24 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
-  ChevronDown,
-  ChevronRight,
-  Trash2,
-  Plus,
   Search,
   X,
   Loader2,
-  Pencil,
   Check,
-  CheckCircle2,
-  Clock3,
   ArrowUpAZ,
   ArrowDownAZ,
   ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
-  supabase,
   STATUS_OPTIONS,
   type Advogado,
   type StatusAdvogado,
@@ -28,21 +23,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,313 +46,74 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { TribunalCard } from "@/features/tribunais/components/TribunalCard";
+import {
+  useTribunaisData,
+  useTribunalMutations,
+} from "@/features/tribunais/hooks";
+import {
+  filtrarTribunais,
+  groupAdvogadosPorTribunal,
+  ordenarTribunais,
+  type FiltroStatus,
+  type Ordem,
+} from "@/features/tribunais/utils";
 
 export const Route = createFileRoute("/tribunais")({
   ssr: false,
   component: TribunaisPage,
 });
 
-type TribunalStatus = "Concluído" | "Pendente" | "Vazio";
+const PAGE_SIZE = 12;
 
-function computeTribunalStatus(advs: Advogado[]): TribunalStatus {
-  if (advs.length === 0) return "Vazio";
-  return advs.every((a) => a.status === "Ok") ? "Concluído" : "Pendente";
-}
-
-function StatusBadge({ status }: { status: StatusAdvogado }) {
-  if (!status) return <span className="text-xs text-muted-foreground">—</span>;
-  const styles: Record<Exclude<StatusAdvogado, "">, string> = {
-    Ok: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-    "Não enviado": "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
-    "Enviado - Aguardando Retorno":
-      "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  };
-  return (
-    <Badge variant="outline" className={cn("font-medium", styles[status])}>
-      {status}
-    </Badge>
-  );
-}
-
-function TribunalCard({
-  tribunal,
-  advogados,
-  filtroAdvogado,
-  onChangeStatus,
-  onDeleteAdvogado,
-  onDeleteTribunal,
-  onAddAdvogado,
-  onEditTribunal,
-  expanded,
-  onToggle,
-}: {
-  tribunal: Tribunal;
-  advogados: Advogado[];
-  filtroAdvogado: string;
-  onChangeStatus: (adv: Advogado, next: StatusAdvogado) => void;
-  onDeleteAdvogado: (adv: Advogado) => void;
-  onDeleteTribunal: (t: Tribunal) => void;
-  onAddAdvogado: (t: Tribunal) => void;
-  onEditTribunal: (t: Tribunal) => void;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const filtered = filtroAdvogado
-    ? advogados.filter((a) => a.nome.toLowerCase().includes(filtroAdvogado.toLowerCase()))
-    : advogados;
-  const okCount = advogados.filter((a) => a.status === "Ok").length;
-  const total = advogados.length;
-  const status = computeTribunalStatus(advogados);
-  const dataCadastro = tribunal.created_at
-    ? new Date(tribunal.created_at).toLocaleDateString("pt-BR")
-    : "—";
-
-  return (
-    <Card className="overflow-hidden">
-      <div className="border-b px-4 py-3">
-        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] md:gap-4">
-          {/* Coluna 1: Nome (clicável para expandir) */}
-          <button
-            onClick={onToggle}
-            className="flex min-w-0 items-center gap-2 text-left"
-            aria-label={expanded ? "Recolher" : "Expandir"}
-          >
-            {expanded ? (
-              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="truncate font-semibold">{tribunal.nome}</span>
-          </button>
-
-          {/* Coluna 2: Sigla */}
-          <div className="md:min-w-[80px]">
-            {tribunal.sigla ? (
-              <Badge variant="secondary" className="text-xs">
-                {tribunal.sigla}
-              </Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground md:hidden">Sem sigla</span>
-            )}
-          </div>
-
-          {/* Coluna 3: Status */}
-          <div className="md:min-w-[130px]">
-            {status === "Concluído" && (
-              <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" variant="outline">
-                <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
-              </Badge>
-            )}
-            {status === "Pendente" && (
-              <Badge className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400" variant="outline">
-                <Clock3 className="mr-1 h-3 w-3" /> Pendente
-              </Badge>
-            )}
-            {status === "Vazio" && (
-              <Badge variant="outline" className="text-muted-foreground">
-                Vazio
-              </Badge>
-            )}
-          </div>
-
-          {/* Coluna 4: Contador + data */}
-          <div className="flex flex-col text-xs text-muted-foreground md:min-w-[140px] md:text-right">
-            <span>
-              {okCount}/{total} OK · {total} advogado{total !== 1 ? "s" : ""}
-            </span>
-            <span className="text-[11px] opacity-75">Cadastrado em {dataCadastro}</span>
-          </div>
-
-          {/* Coluna 5: Ações */}
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onEditTribunal(tribunal)}
-              aria-label="Editar tribunal"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onAddAdvogado(tribunal)}
-              className="hidden sm:inline-flex"
-            >
-              <Plus className="mr-1 h-3.5 w-3.5" /> Advogado
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onDeleteTribunal(tribunal)}
-              aria-label="Excluir tribunal"
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Advogado</TableHead>
-                <TableHead className="w-[280px]">Status</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
-                    Nenhum advogado{filtroAdvogado ? " corresponde ao filtro" : ""}.
-                  </TableCell>
-                </TableRow>
-              )}
-              {filtered.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.nome}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={a.status || "__vazio__"}
-                        onValueChange={(v) =>
-                          onChangeStatus(a, (v === "__vazio__" ? "" : v) as StatusAdvogado)
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-[220px]">
-                          <SelectValue placeholder="Selecionar status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map((s) => (
-                            <SelectItem key={s || "vazio"} value={s || "__vazio__"}>
-                              {s || "— vazio —"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <StatusBadge status={a.status} />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onDeleteAdvogado(a)}
-                      aria-label="Excluir advogado"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </Card>
-  );
-}
+const tribunalSchema = z.object({
+  nome: z.string().trim().min(1, "Informe o nome").max(120, "Máx. 120 caracteres"),
+  sigla: z.string().trim().max(20, "Máx. 20 caracteres").optional(),
+});
+type TribunalForm = z.infer<typeof tribunalSchema>;
 
 function TribunaisPage() {
-  const [tribunais, setTribunais] = useState<Tribunal[]>([]);
-  const [advogados, setAdvogados] = useState<Advogado[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tribunais, advogados, loading } = useTribunaisData();
+  const { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado } =
+    useTribunalMutations();
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const [filtroTribunalInput, setFiltroTribunalInput] = useState("");
   const [filtroAdvogadoInput, setFiltroAdvogadoInput] = useState("");
   const [filtroTribunal, setFiltroTribunal] = useState("");
   const [filtroAdvogado, setFiltroAdvogado] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
+  const [ordem, setOrdem] = useState<Ordem>("az");
+  const [page, setPage] = useState(1);
 
-  const [deleteTribunal, setDeleteTribunal] = useState<Tribunal | null>(null);
-  const [deleteAdvogado, setDeleteAdvogado] = useState<Advogado | null>(null);
+  const [tribunalParaExcluir, setTribunalParaExcluir] = useState<Tribunal | null>(null);
+  const [advogadoParaExcluir, setAdvogadoParaExcluir] = useState<Advogado | null>(null);
 
   const [addAdvOpen, setAddAdvOpen] = useState(false);
   const [addAdvTribunal, setAddAdvTribunal] = useState<Tribunal | null>(null);
   const [addAdvNome, setAddAdvNome] = useState("");
   const [addAdvStatus, setAddAdvStatus] = useState<StatusAdvogado>("");
-  const [addAdvSaving, setAddAdvSaving] = useState(false);
-
-  const [filtroStatus, setFiltroStatus] = useState<"todos" | "Concluído" | "Pendente">("todos");
-  const [ordem, setOrdem] = useState<"az" | "za" | "recent" | "old">("az");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 12;
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTribunal, setEditTribunal] = useState<Tribunal | null>(null);
-  const [editNome, setEditNome] = useState("");
-  const [editSigla, setEditSigla] = useState("");
-  const [editSaving, setEditSaving] = useState(false);
 
-  const loadAll = async () => {
-    setLoading(true);
-    const [tRes, aRes] = await Promise.all([
-      supabase
-        .from("tabelas_tribunais")
-        .select("id,nome,sigla,created_at")
-        .order("nome"),
-      supabase
-        .from("tabelas_advogados")
-        .select("id,tribunal_id,nome,status,created_at")
-        .order("nome"),
-    ]);
-    if (tRes.error) toast.error("Erro ao carregar tribunais: " + tRes.error.message);
-    if (aRes.error) toast.error("Erro ao carregar advogados: " + aRes.error.message);
-    setTribunais((tRes.data ?? []) as Tribunal[]);
-    setAdvogados((aRes.data ?? []) as Advogado[]);
-    setLoading(false);
-  };
+  const editForm = useForm<TribunalForm>({
+    resolver: zodResolver(tribunalSchema),
+    defaultValues: { nome: "", sigla: "" },
+  });
 
-  useEffect(() => {
-    loadAll();
-  }, []);
-
-  const advByTribunal = useMemo(() => {
-    const map = new Map<string, Advogado[]>();
-    for (const a of advogados) {
-      const arr = map.get(a.tribunal_id) ?? [];
-      arr.push(a);
-      map.set(a.tribunal_id, arr);
-    }
-    return map;
-  }, [advogados]);
+  const advByTribunal = useMemo(() => groupAdvogadosPorTribunal(advogados), [advogados]);
 
   const tribunaisFiltrados = useMemo(() => {
-    let list = tribunais;
-    if (filtroTribunal) {
-      const q = filtroTribunal.toLowerCase();
-      list = list.filter(
-        (t) => t.nome.toLowerCase().includes(q) || (t.sigla ?? "").toLowerCase().includes(q),
-      );
-    }
-    if (filtroAdvogado) {
-      const q = filtroAdvogado.toLowerCase();
-      list = list.filter((t) =>
-        (advByTribunal.get(t.id) ?? []).some((a) => a.nome.toLowerCase().includes(q)),
-      );
-    }
-    if (filtroStatus !== "todos") {
-      list = list.filter(
-        (t) => computeTribunalStatus(advByTribunal.get(t.id) ?? []) === filtroStatus,
-      );
-    }
-    const sorted = [...list].sort((a, b) => {
-      if (ordem === "az") return a.nome.localeCompare(b.nome, "pt-BR");
-      if (ordem === "za") return b.nome.localeCompare(a.nome, "pt-BR");
-      const da = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const db = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return ordem === "recent" ? db - da : da - db;
+    const filtrados = filtrarTribunais(tribunais, advByTribunal, {
+      texto: filtroTribunal,
+      advogado: filtroAdvogado,
+      status: filtroStatus,
     });
-    return sorted;
-  }, [tribunais, filtroTribunal, filtroAdvogado, filtroStatus, ordem, advByTribunal]);
+    return ordenarTribunais(filtrados, ordem);
+  }, [tribunais, advByTribunal, filtroTribunal, filtroAdvogado, filtroStatus, ordem]);
 
-  // Reset página quando filtros/ordem mudam
   useEffect(() => {
     setPage(1);
   }, [filtroTribunal, filtroAdvogado, filtroStatus, ordem]);
@@ -380,10 +127,10 @@ function TribunaisPage() {
 
   const aplicarFiltros = () => {
     setFiltroTribunal(filtroTribunalInput.trim());
-    setFiltroAdvogado(filtroAdvogadoInput.trim());
-    if (filtroAdvogadoInput.trim()) {
-      // expandir automaticamente tribunais com match
-      const q = filtroAdvogadoInput.trim().toLowerCase();
+    const advQ = filtroAdvogadoInput.trim();
+    setFiltroAdvogado(advQ);
+    if (advQ) {
+      const q = advQ.toLowerCase();
       const next = new Set(expanded);
       for (const t of tribunais) {
         if ((advByTribunal.get(t.id) ?? []).some((a) => a.nome.toLowerCase().includes(q))) {
@@ -408,49 +155,6 @@ function TribunaisPage() {
     setExpanded(next);
   };
 
-  const handleChangeStatus = async (adv: Advogado, next: StatusAdvogado) => {
-    setAdvogados((prev) => prev.map((a) => (a.id === adv.id ? { ...a, status: next } : a)));
-    const { error } = await supabase
-      .from("tabelas_advogados")
-      .update({ status: next })
-      .eq("id", adv.id);
-    if (error) {
-      toast.error("Erro ao atualizar status: " + error.message);
-      setAdvogados((prev) => prev.map((a) => (a.id === adv.id ? { ...a, status: adv.status } : a)));
-    } else {
-      toast.success("Status atualizado.");
-    }
-  };
-
-  const confirmDeleteTribunal = async () => {
-    if (!deleteTribunal) return;
-    const { error } = await supabase
-      .from("tabelas_tribunais")
-      .delete()
-      .eq("id", deleteTribunal.id);
-    if (error) toast.error("Erro ao excluir tribunal: " + error.message);
-    else {
-      toast.success("Tribunal excluído.");
-      setTribunais((prev) => prev.filter((t) => t.id !== deleteTribunal.id));
-      setAdvogados((prev) => prev.filter((a) => a.tribunal_id !== deleteTribunal.id));
-    }
-    setDeleteTribunal(null);
-  };
-
-  const confirmDeleteAdvogado = async () => {
-    if (!deleteAdvogado) return;
-    const { error } = await supabase
-      .from("tabelas_advogados")
-      .delete()
-      .eq("id", deleteAdvogado.id);
-    if (error) toast.error("Erro ao excluir advogado: " + error.message);
-    else {
-      toast.success("Advogado excluído.");
-      setAdvogados((prev) => prev.filter((a) => a.id !== deleteAdvogado.id));
-    }
-    setDeleteAdvogado(null);
-  };
-
   const openAddAdvogado = (t: Tribunal) => {
     setAddAdvTribunal(t);
     setAddAdvNome("");
@@ -460,59 +164,29 @@ function TribunaisPage() {
 
   const openEditTribunal = (t: Tribunal) => {
     setEditTribunal(t);
-    setEditNome(t.nome);
-    setEditSigla(t.sigla ?? "");
+    editForm.reset({ nome: t.nome, sigla: t.sigla ?? "" });
     setEditOpen(true);
   };
 
-  const submitEditTribunal = async () => {
-    if (!editTribunal || !editNome.trim()) {
-      toast.error("Informe o nome do tribunal.");
-      return;
-    }
-    setEditSaving(true);
-    const nome = editNome.trim();
-    const sigla = editSigla.trim() || null;
-    const { data, error } = await supabase
-      .from("tabelas_tribunais")
-      .update({ nome, sigla })
-      .eq("id", editTribunal.id)
-      .select()
-      .single();
-    setEditSaving(false);
-    if (error) {
-      toast.error("Erro ao salvar: " + error.message);
-      return;
-    }
-    setTribunais((prev) => prev.map((t) => (t.id === editTribunal.id ? (data as Tribunal) : t)));
+  const submitEdit = editForm.handleSubmit(async (values) => {
+    if (!editTribunal) return;
+    await saveTribunal.mutateAsync({
+      id: editTribunal.id,
+      nome: values.nome.trim(),
+      sigla: values.sigla?.trim() ? values.sigla.trim() : null,
+    });
     setEditOpen(false);
-    toast.success("Tribunal atualizado.");
-  };
+  });
 
   const submitAddAdvogado = async () => {
-    if (!addAdvTribunal || !addAdvNome.trim()) {
-      toast.error("Informe o nome do advogado.");
-      return;
-    }
-    setAddAdvSaving(true);
-    const { data, error } = await supabase
-      .from("tabelas_advogados")
-      .insert({
-        tribunal_id: addAdvTribunal.id,
-        nome: addAdvNome.trim(),
-        status: addAdvStatus,
-      })
-      .select()
-      .single();
-    setAddAdvSaving(false);
-    if (error) {
-      toast.error("Erro ao adicionar: " + error.message);
-      return;
-    }
-    setAdvogados((prev) => [...prev, data as Advogado]);
-    setExpanded((prev) => new Set(prev).add(addAdvTribunal.id));
+    if (!addAdvTribunal || !addAdvNome.trim()) return;
+    const created = await addAdvogado.mutateAsync({
+      tribunal_id: addAdvTribunal.id,
+      nome: addAdvNome.trim(),
+      status: addAdvStatus,
+    });
+    setExpanded((prev) => new Set(prev).add(created.tribunal_id));
     setAddAdvOpen(false);
-    toast.success("Advogado adicionado.");
   };
 
   return (
@@ -555,7 +229,10 @@ function TribunaisPage() {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Status do tribunal
             </label>
-            <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as typeof filtroStatus)}>
+            <Select
+              value={filtroStatus}
+              onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -567,10 +244,8 @@ function TribunaisPage() {
             </Select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Ordenar
-            </label>
-            <Select value={ordem} onValueChange={(v) => setOrdem(v as typeof ordem)}>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Ordenar</label>
+            <Select value={ordem} onValueChange={(v) => setOrdem(v as Ordem)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -607,7 +282,7 @@ function TribunaisPage() {
         </div>
       </Card>
 
-        {loading ? (
+      {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
         </div>
@@ -619,70 +294,76 @@ function TribunaisPage() {
         </Card>
       ) : (
         <>
-        <div className="space-y-3">
-          {paginados.map((t) => (
-            <TribunalCard
-              key={t.id}
-              tribunal={t}
-              advogados={advByTribunal.get(t.id) ?? []}
-              filtroAdvogado={filtroAdvogado}
-              expanded={expanded.has(t.id)}
-              onToggle={() => toggleExpand(t.id)}
-              onChangeStatus={handleChangeStatus}
-              onDeleteAdvogado={(a) => setDeleteAdvogado(a)}
-              onDeleteTribunal={(x) => setDeleteTribunal(x)}
-              onAddAdvogado={openAddAdvogado}
-              onEditTribunal={openEditTribunal}
-            />
-          ))}
-        </div>
-        {totalPages > 1 && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">
-              Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
-              {Math.min(currentPage * PAGE_SIZE, tribunaisFiltrados.length)} de{" "}
-              {tribunaisFiltrados.length}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={currentPage === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Página {currentPage} de {totalPages}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={currentPage === totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Próxima <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
+          <div className="space-y-3">
+            {paginados.map((t) => (
+              <TribunalCard
+                key={t.id}
+                tribunal={t}
+                advogados={advByTribunal.get(t.id) ?? []}
+                filtroAdvogado={filtroAdvogado}
+                expanded={expanded.has(t.id)}
+                onToggle={() => toggleExpand(t.id)}
+                onChangeStatus={(adv, status) => setStatus.mutate({ adv, status })}
+                onDeleteAdvogado={(a) => setAdvogadoParaExcluir(a)}
+                onDeleteTribunal={(x) => setTribunalParaExcluir(x)}
+                onAddAdvogado={openAddAdvogado}
+                onEditTribunal={openEditTribunal}
+              />
+            ))}
           </div>
-        )}
+          {totalPages > 1 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">
+                Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
+                {Math.min(currentPage * PAGE_SIZE, tribunaisFiltrados.length)} de{" "}
+                {tribunaisFiltrados.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Próxima <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
       {/* Modal excluir tribunal */}
-      <AlertDialog open={!!deleteTribunal} onOpenChange={(o) => !o && setDeleteTribunal(null)}>
+      <AlertDialog
+        open={!!tribunalParaExcluir}
+        onOpenChange={(o) => !o && setTribunalParaExcluir(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir tribunal?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{deleteTribunal?.nome}</strong>? Todos os
+              Tem certeza que deseja excluir <strong>{tribunalParaExcluir?.nome}</strong>? Todos os
               advogados associados serão removidos. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDeleteTribunal}
+              onClick={() => {
+                if (tribunalParaExcluir) removeTribunal.mutate(tribunalParaExcluir);
+                setTribunalParaExcluir(null);
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
@@ -692,18 +373,24 @@ function TribunaisPage() {
       </AlertDialog>
 
       {/* Modal excluir advogado */}
-      <AlertDialog open={!!deleteAdvogado} onOpenChange={(o) => !o && setDeleteAdvogado(null)}>
+      <AlertDialog
+        open={!!advogadoParaExcluir}
+        onOpenChange={(o) => !o && setAdvogadoParaExcluir(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir advogado?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{deleteAdvogado?.nome}</strong>?
+              Tem certeza que deseja excluir <strong>{advogadoParaExcluir?.nome}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDeleteAdvogado}
+              onClick={() => {
+                if (advogadoParaExcluir) removeAdvogado.mutate(advogadoParaExcluir);
+                setAdvogadoParaExcluir(null);
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
@@ -753,8 +440,8 @@ function TribunaisPage() {
             <Button variant="outline" onClick={() => setAddAdvOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={submitAddAdvogado} disabled={addAdvSaving}>
-              {addAdvSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={submitAddAdvogado} disabled={addAdvogado.isPending}>
+              {addAdvogado.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Adicionar
             </Button>
           </DialogFooter>
@@ -767,37 +454,39 @@ function TribunaisPage() {
           <DialogHeader>
             <DialogTitle>Editar tribunal</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <form onSubmit={submitEdit} className="space-y-3">
             <div>
               <label className="mb-1 block text-sm font-medium">Nome</label>
-              <Input
-                value={editNome}
-                onChange={(e) => setEditNome(e.target.value)}
-                autoFocus
-              />
+              <Input autoFocus {...editForm.register("nome")} />
+              {editForm.formState.errors.nome && (
+                <p className="mt-1 text-xs text-destructive">
+                  {editForm.formState.errors.nome.message}
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Sigla</label>
-              <Input
-                value={editSigla}
-                onChange={(e) => setEditSigla(e.target.value)}
-                placeholder="Opcional"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submitEditTribunal} disabled={editSaving}>
-              {editSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
+              <Input placeholder="Opcional" {...editForm.register("sigla")} />
+              {editForm.formState.errors.sigla && (
+                <p className="mt-1 text-xs text-destructive">
+                  {editForm.formState.errors.sigla.message}
+                </p>
               )}
-              Salvar
-            </Button>
-          </DialogFooter>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saveTribunal.isPending}>
+                {saveTribunal.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

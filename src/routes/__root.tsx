@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -13,6 +14,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AppNav } from "@/components/app-nav";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 
 function NotFoundComponent() {
   return (
@@ -126,13 +129,50 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background">
-        <AppNav />
-        <main>
-          <Outlet />
-        </main>
-      </div>
-      <Toaster richColors position="top-right" />
+      <AuthProvider>
+        <AuthGate />
+        <Toaster richColors position="top-right" />
+      </AuthProvider>
     </QueryClientProvider>
+  );
+}
+
+function AuthGate() {
+  const { user, loading } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const router = useRouter();
+
+  // Se sessão for perdida durante a navegação, invalida cache.
+  useEffect(() => {
+    if (!loading && !user && pathname !== "/login") {
+      router.navigate({ to: "/login" });
+    }
+  }, [loading, user, pathname, router]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Rota de login é sempre renderizada sem shell
+  if (pathname === "/login") {
+    return <Outlet />;
+  }
+
+  if (!user) {
+    // Enquanto redireciona
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <AppNav />
+      <main>
+        <Outlet />
+      </main>
+    </div>
   );
 }
