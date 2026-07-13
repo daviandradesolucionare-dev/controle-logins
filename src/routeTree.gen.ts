@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TribunaisRouteImport } from './routes/tribunais'
 import { Route as NovoCadastroRouteImport } from './routes/novo-cadastro'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdvogadosPadraoRouteImport } from './routes/advogados-padrao'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TribunaisRoute = TribunaisRouteImport.update({
+  id: '/tribunais',
+  path: '/tribunais',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NovoCadastroRoute = NovoCadastroRouteImport.update({
   id: '/novo-cadastro',
   path: '/novo-cadastro',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/advogados-padrao': typeof AdvogadosPadraoRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
+  '/tribunais': typeof TribunaisRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
+  '/tribunais': typeof TribunaisRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,25 @@ export interface FileRoutesById {
   '/advogados-padrao': typeof AdvogadosPadraoRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
+  '/tribunais': typeof TribunaisRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/advogados-padrao' | '/login' | '/novo-cadastro'
+  fullPaths:
+    | '/'
+    | '/advogados-padrao'
+    | '/login'
+    | '/novo-cadastro'
+    | '/tribunais'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/advogados-padrao' | '/login' | '/novo-cadastro'
-  id: '__root__' | '/' | '/advogados-padrao' | '/login' | '/novo-cadastro'
+  to: '/' | '/advogados-padrao' | '/login' | '/novo-cadastro' | '/tribunais'
+  id:
+    | '__root__'
+    | '/'
+    | '/advogados-padrao'
+    | '/login'
+    | '/novo-cadastro'
+    | '/tribunais'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +87,18 @@ export interface RootRouteChildren {
   AdvogadosPadraoRoute: typeof AdvogadosPadraoRoute
   LoginRoute: typeof LoginRoute
   NovoCadastroRoute: typeof NovoCadastroRoute
+  TribunaisRoute: typeof TribunaisRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tribunais': {
+      id: '/tribunais'
+      path: '/tribunais'
+      fullPath: '/tribunais'
+      preLoaderRoute: typeof TribunaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/novo-cadastro': {
       id: '/novo-cadastro'
       path: '/novo-cadastro'
@@ -107,6 +135,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdvogadosPadraoRoute: AdvogadosPadraoRoute,
   LoginRoute: LoginRoute,
   NovoCadastroRoute: NovoCadastroRoute,
+  TribunaisRoute: TribunaisRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
