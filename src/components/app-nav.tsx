@@ -1,8 +1,10 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Moon, Sun, Scale, Wifi, WifiOff } from "lucide-react";
+import { Moon, Sun, Scale, Wifi, WifiOff, LogOut, User as UserIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +52,15 @@ function ConnectionBadge() {
 
 export function AppNav() {
   const { theme, toggle } = useTheme();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleSignOut = async () => {
+    await signOut();
+    queryClient.clear();
+    navigate({ to: "/login" });
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur">
@@ -99,6 +110,23 @@ export function AppNav() {
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Alternar tema">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+          {user && (
+            <>
+              <div className="hidden items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground md:flex">
+                <UserIcon className="h-3 w-3" />
+                <span className="max-w-[160px] truncate">{user.email}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                aria-label="Sair"
+                title="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
