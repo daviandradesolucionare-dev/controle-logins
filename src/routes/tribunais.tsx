@@ -100,7 +100,7 @@ function TribunaisPage() {
 
   const setSearch = (patch: Partial<typeof search>, resetOffset = true) => {
     navigate({
-      search: (prev) => ({
+      search: (prev: Record<string, unknown>) => ({
         ...prev,
         ...patch,
         ...(resetOffset ? { offset: 0 } : {}),
