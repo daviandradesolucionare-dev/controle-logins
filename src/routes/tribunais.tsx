@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,23 +49,28 @@ import {
 } from "@/components/ui/dialog";
 import { TribunalCard } from "@/features/tribunais/components/TribunalCard";
 import {
-  useTribunaisData,
+  useAdvogadosDaPagina,
+  useTribunaisPage,
   useTribunalMutations,
 } from "@/features/tribunais/hooks";
-import {
-  filtrarTribunais,
-  groupAdvogadosPorTribunal,
-  ordenarTribunais,
-  type FiltroStatus,
-  type Ordem,
-} from "@/features/tribunais/utils";
+import { groupAdvogadosPorTribunal } from "@/features/tribunais/utils";
+import type { OrdemServer, StatusFiltro } from "@/features/tribunais/api";
+
+const PAGE_SIZE = 12;
+
+const searchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  adv: fallback(z.string(), "").default(""),
+  status: fallback(z.string(), "todos").default("todos"),
+  ordem: fallback(z.string(), "az").default("az"),
+  offset: fallback(z.number().int(), 0).default(0),
+});
 
 export const Route = createFileRoute("/tribunais")({
   ssr: false,
+  validateSearch: zodValidator(searchSchema),
   component: TribunaisPage,
 });
-
-const PAGE_SIZE = 12;
 
 const tribunalSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome").max(120, "Máx. 120 caracteres"),
@@ -72,20 +78,64 @@ const tribunalSchema = z.object({
 });
 type TribunalForm = z.infer<typeof tribunalSchema>;
 
+const STATUSES: StatusFiltro[] = ["todos", "Concluído", "Pendente", "Vazio"];
+const ORDENS: OrdemServer[] = ["az", "za", "recent", "old"];
+function toStatus(v: string): StatusFiltro {
+  return (STATUSES as string[]).includes(v) ? (v as StatusFiltro) : "todos";
+}
+function toOrdem(v: string): OrdemServer {
+  return (ORDENS as string[]).includes(v) ? (v as OrdemServer) : "az";
+}
+
 function TribunaisPage() {
-  const { tribunais, advogados, loading } = useTribunaisData();
+  const rawSearch = Route.useSearch();
+  const search = {
+    q: rawSearch.q ?? "",
+    adv: rawSearch.adv ?? "",
+    status: toStatus(rawSearch.status ?? "todos"),
+    ordem: toOrdem(rawSearch.ordem ?? "az"),
+    offset: Math.max(0, rawSearch.offset ?? 0),
+  };
+  const navigate = useNavigate({ from: "/tribunais" });
+
+  const setSearch = (patch: Partial<typeof search>, resetOffset = true) => {
+    navigate({
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        ...patch,
+        ...(resetOffset ? { offset: 0 } : {}),
+      }),
+    });
+  };
+
+  const pageQuery = useTribunaisPage({
+    q: search.q,
+    adv: search.adv,
+    status: search.status,
+    ordem: search.ordem,
+    offset: search.offset,
+    limit: PAGE_SIZE,
+  });
+  const rows = pageQuery.data?.rows ?? [];
+  const total = pageQuery.data?.total ?? 0;
+  const loading = pageQuery.isLoading;
+
+  const pageIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const advogadosQuery = useAdvogadosDaPagina(pageIds);
+  const advogados = advogadosQuery.data ?? [];
+  const advByTribunal = useMemo(() => groupAdvogadosPorTribunal(advogados), [advogados]);
+
   const { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado } =
     useTribunalMutations();
 
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Inputs locais com debounce para não requisitar a cada tecla
+  const [filtroTribunalInput, setFiltroTribunalInput] = useState(search.q);
+  const [filtroAdvogadoInput, setFiltroAdvogadoInput] = useState(search.adv);
 
-  const [filtroTribunalInput, setFiltroTribunalInput] = useState("");
-  const [filtroAdvogadoInput, setFiltroAdvogadoInput] = useState("");
-  const [filtroTribunal, setFiltroTribunal] = useState("");
-  const [filtroAdvogado, setFiltroAdvogado] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
-  const [ordem, setOrdem] = useState<Ordem>("az");
-  const [page, setPage] = useState(1);
+  useEffect(() => setFiltroTribunalInput(search.q), [search.q]);
+  useEffect(() => setFiltroAdvogadoInput(search.adv), [search.adv]);
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const [tribunalParaExcluir, setTribunalParaExcluir] = useState<Tribunal | null>(null);
   const [advogadoParaExcluir, setAdvogadoParaExcluir] = useState<Advogado | null>(null);
@@ -103,36 +153,17 @@ function TribunaisPage() {
     defaultValues: { nome: "", sigla: "" },
   });
 
-  const advByTribunal = useMemo(() => groupAdvogadosPorTribunal(advogados), [advogados]);
-
-  const tribunaisFiltrados = useMemo(() => {
-    const filtrados = filtrarTribunais(tribunais, advByTribunal, {
-      texto: filtroTribunal,
-      advogado: filtroAdvogado,
-      status: filtroStatus,
-    });
-    return ordenarTribunais(filtrados, ordem);
-  }, [tribunais, advByTribunal, filtroTribunal, filtroAdvogado, filtroStatus, ordem]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [filtroTribunal, filtroAdvogado, filtroStatus, ordem]);
-
-  const totalPages = Math.max(1, Math.ceil(tribunaisFiltrados.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paginados = useMemo(
-    () => tribunaisFiltrados.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [tribunaisFiltrados, currentPage],
-  );
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentPage = Math.min(totalPages, Math.floor(search.offset / PAGE_SIZE) + 1);
 
   const aplicarFiltros = () => {
-    setFiltroTribunal(filtroTribunalInput.trim());
     const advQ = filtroAdvogadoInput.trim();
-    setFiltroAdvogado(advQ);
+    setSearch({ q: filtroTribunalInput.trim(), adv: advQ });
     if (advQ) {
+      // Expande automaticamente os cards com match — advogados chegam via query
       const q = advQ.toLowerCase();
       const next = new Set(expanded);
-      for (const t of tribunais) {
+      for (const t of rows) {
         if ((advByTribunal.get(t.id) ?? []).some((a) => a.nome.toLowerCase().includes(q))) {
           next.add(t.id);
         }
@@ -144,8 +175,7 @@ function TribunaisPage() {
   const limparFiltros = () => {
     setFiltroTribunalInput("");
     setFiltroAdvogadoInput("");
-    setFiltroTribunal("");
-    setFiltroAdvogado("");
+    setSearch({ q: "", adv: "" });
   };
 
   const toggleExpand = (id: string) => {
@@ -195,8 +225,7 @@ function TribunaisPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tribunais</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {tribunais.length} tribunal{tribunais.length !== 1 ? "is" : ""} · {advogados.length}{" "}
-            advogado{advogados.length !== 1 ? "s" : ""}
+            {total} tribunal{total !== 1 ? "is" : ""} encontrados
           </p>
         </div>
       </div>
@@ -230,8 +259,8 @@ function TribunaisPage() {
               Status do tribunal
             </label>
             <Select
-              value={filtroStatus}
-              onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}
+              value={search.status}
+              onValueChange={(v) => setSearch({ status: toStatus(v) })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -240,12 +269,13 @@ function TribunaisPage() {
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="Concluído">Concluído</SelectItem>
                 <SelectItem value="Pendente">Pendente</SelectItem>
+                <SelectItem value="Vazio">Vazio</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Ordenar</label>
-            <Select value={ordem} onValueChange={(v) => setOrdem(v as Ordem)}>
+            <Select value={search.ordem} onValueChange={(v) => setSearch({ ordem: toOrdem(v) })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -269,15 +299,15 @@ function TribunaisPage() {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => setOrdem((o) => (o === "az" ? "za" : "az"))}
+            onClick={() => setSearch({ ordem: search.ordem === "az" ? "za" : "az" })}
             title="Alternar ordenação"
           >
-            {ordem === "az" ? (
+            {search.ordem === "az" ? (
               <ArrowUpAZ className="mr-2 h-4 w-4" />
             ) : (
               <ArrowDownAZ className="mr-2 h-4 w-4" />
             )}
-            {ordem === "az" ? "A-Z" : "Z-A"}
+            {search.ordem === "az" ? "A-Z" : "Z-A"}
           </Button>
         </div>
       </Card>
@@ -286,21 +316,19 @@ function TribunaisPage() {
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
         </div>
-      ) : tribunaisFiltrados.length === 0 ? (
+      ) : rows.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground">
-          {tribunais.length === 0
-            ? "Nenhum tribunal cadastrado ainda."
-            : "Nenhum tribunal corresponde aos filtros."}
+          Nenhum tribunal corresponde aos filtros.
         </Card>
       ) : (
         <>
           <div className="space-y-3">
-            {paginados.map((t) => (
+            {rows.map((t) => (
               <TribunalCard
                 key={t.id}
                 tribunal={t}
                 advogados={advByTribunal.get(t.id) ?? []}
-                filtroAdvogado={filtroAdvogado}
+                filtroAdvogado={search.adv}
                 expanded={expanded.has(t.id)}
                 onToggle={() => toggleExpand(t.id)}
                 onChangeStatus={(adv, status) => setStatus.mutate({ adv, status })}
@@ -314,16 +342,16 @@ function TribunaisPage() {
           {totalPages > 1 && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">
-                Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–
-                {Math.min(currentPage * PAGE_SIZE, tribunaisFiltrados.length)} de{" "}
-                {tribunaisFiltrados.length}
+                Mostrando {search.offset + 1}–{Math.min(search.offset + PAGE_SIZE, total)} de {total}
               </span>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={currentPage === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() =>
+                    setSearch({ offset: Math.max(0, search.offset - PAGE_SIZE) }, false)
+                  }
                 >
                   <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
                 </Button>
@@ -334,7 +362,7 @@ function TribunaisPage() {
                   size="sm"
                   variant="outline"
                   disabled={currentPage === totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => setSearch({ offset: search.offset + PAGE_SIZE }, false)}
                 >
                   Próxima <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>

@@ -1,112 +1,86 @@
-# Plano: Segurança (Auth + RLS) e Refatoração de tribunais.tsx
+# Plano — Paginação/filtros no servidor (Frente 3)
 
-O projeto hoje usa a chave `anon` publishable direto no cliente, sem autenticação, com o Supabase existente (`tcsltucypjnrwlsyjdpt`). Esse plano cobre as duas frentes que você escolheu.
+Hoje `tribunais.tsx` puxa **todos** os tribunais e **todos** os 290 advogados de uma vez e filtra/pagina no cliente. Vou migrar isso para consultas server-side com `.range()`, filtros SQL e um agregado de status feito no Postgres.
 
-Antes de começar, preciso confirmar 3 pontos operacionais que impactam diretamente a execução — respondo abaixo o que planejo assumir por padrão, mas me avise se quiser mudar:
+## Frente 1 — SQL para você rodar no Supabase
 
-1. **Escopo dos usuários:** app interno de uso próprio/equipe. Vou implementar login por **email/senha** apenas (sem Google/OAuth), auto-cadastro **desativado** (usuários criados por você no painel do Supabase). Se quiser signup aberto ou Google, me diga.
-2. **Modelo de acesso:** todo dado (`tabelas_tribunais`, `tabelas_advogados`) fica **restrito a usuários autenticados** — sem diferenciação de dono/role por enquanto (todos os usuários logados veem/editam tudo). Simples e adequado para uso interno.
-3. **Migração do Supabase:** o projeto atual **não tem Lovable Cloud ativado** (está conectado ao seu Supabase manualmente). Vou precisar que você **rode um SQL no SQL Editor do painel Supabase** — eu forneço o script exato. Não vou ativar Lovable Cloud (isso criaria um segundo projeto).
-
----
-
-## Frente 1 — Autenticação + RLS
-
-### 1.1 SQL para você rodar no Supabase (SQL Editor)
+Precisamos de uma **view** com status agregado + índices. Script único para colar no SQL Editor:
 
 ```sql
--- Habilita RLS e remove qualquer policy pública existente
-ALTER TABLE public.tabelas_tribunais ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tabelas_advogados ENABLE ROW LEVEL SECURITY;
+-- Índices para busca/ordenação/relacionamento
+CREATE INDEX IF NOT EXISTS idx_tribunais_nome         ON public.tabelas_tribunais (nome);
+CREATE INDEX IF NOT EXISTS idx_tribunais_created_at   ON public.tabelas_tribunais (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tribunais_nome_trgm    ON public.tabelas_tribunais USING gin (nome gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_tribunais_sigla_trgm   ON public.tabelas_tribunais USING gin (sigla gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_advogados_tribunal_id  ON public.tabelas_advogados (tribunal_id);
+CREATE INDEX IF NOT EXISTS idx_advogados_nome_trgm    ON public.tabelas_advogados USING gin (nome gin_trgm_ops);
 
-DROP POLICY IF EXISTS "public read tribunais"   ON public.tabelas_tribunais;
-DROP POLICY IF EXISTS "public write tribunais"  ON public.tabelas_tribunais;
-DROP POLICY IF EXISTS "public read advogados"   ON public.tabelas_advogados;
-DROP POLICY IF EXISTS "public write advogados"  ON public.tabelas_advogados;
--- (ajuste os DROPs conforme os nomes reais que aparecerem no painel)
+-- Extensão pg_trgm (para ILIKE performático)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- Novas policies: apenas usuários autenticados
-CREATE POLICY "auth read tribunais"
-  ON public.tabelas_tribunais FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write tribunais"
-  ON public.tabelas_tribunais FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- View com status agregado
+CREATE OR REPLACE VIEW public.tribunais_com_status AS
+SELECT
+  t.id, t.nome, t.sigla, t.created_at,
+  COALESCE(a.total, 0)                        AS total_advogados,
+  COALESCE(a.ok_count, 0)                     AS ok_count,
+  CASE
+    WHEN COALESCE(a.total, 0) = 0            THEN 'Vazio'
+    WHEN a.ok_count = a.total                 THEN 'Concluído'
+    ELSE 'Pendente'
+  END                                         AS status
+FROM public.tabelas_tribunais t
+LEFT JOIN (
+  SELECT tribunal_id,
+         COUNT(*)                                     AS total,
+         COUNT(*) FILTER (WHERE status = 'Ok')        AS ok_count
+  FROM public.tabelas_advogados
+  GROUP BY tribunal_id
+) a ON a.tribunal_id = t.id;
 
-CREATE POLICY "auth read advogados"
-  ON public.tabelas_advogados FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth write advogados"
-  ON public.tabelas_advogados FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
--- Revoga acesso anônimo remanescente
-REVOKE ALL ON public.tabelas_tribunais FROM anon;
-REVOKE ALL ON public.tabelas_advogados FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.tabelas_tribunais TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.tabelas_advogados TO authenticated;
+GRANT SELECT ON public.tribunais_com_status TO authenticated;
 ```
 
-E no painel: **Authentication → Providers → Email**: desativar "Enable email confirmations" (para você criar usuários direto) e desativar signup público em **Authentication → Settings**.
+A view herda RLS das tabelas base, então continua restrita a `authenticated`.
 
-### 1.2 Mudanças no código
+## Frente 2 — Código
 
-- **`src/lib/supabase.ts`**: ligar `persistSession: true` e `autoRefreshToken: true` (hoje estão desligados — necessário para manter usuário logado).
-- **`src/lib/auth.tsx`** (novo): contexto `AuthProvider` que expõe `user`, `loading`, `signIn`, `signOut`, com `onAuthStateChange`.
-- **`src/routes/login.tsx`** (novo): tela de login (email/senha) com validação `zod` + `react-hook-form`, mensagens em português, redireciona para `/` ao entrar.
-- **`src/routes/__root.tsx`**: envolver com `AuthProvider`; a `<AppNav>` só renderiza quando `user` existe.
-- **Gate de rotas**: como o app é 100% `ssr: false` (SPA), vou usar um gate simples no root — se `!user && rota !== "/login"`, renderiza `<Login />` no lugar do `<Outlet />`. Evita complicar com layout `_authenticated` (que exigiria mover todos os arquivos de rota).
-- **`src/components/app-nav.tsx`**: adicionar avatar/email do usuário + botão "Sair" (chama `signOut`, limpa cache do react-query, navega para `/login`).
-- **Badge de conexão**: passa a checar autenticado, não anon.
+### `src/features/tribunais/api.ts`
+- Nova função `fetchTribunaisPage({ q, status, ordem, offset, limit })`:
+  - SELECT em `tribunais_com_status` com `.or('nome.ilike.%q%,sigla.ilike.%q%')`
+  - `.eq('status', ...)` quando `status !== 'todos'`
+  - `.order()` por `nome` ou `created_at` conforme `ordem`
+  - `.range(offset, offset+limit-1)` e `{ count: 'exact' }` para total.
+- Nova `fetchAdvogadosByTribunais(ids: string[])`: só carrega advogados da página visível (`.in('tribunal_id', ids)`).
+- Filtro por nome de advogado (server-side): função auxiliar que primeiro busca `tribunal_id`s distintos em `tabelas_advogados` com `.ilike` + limita, depois filtra a página.
 
-### 1.3 Fluxo de erro
+### `src/features/tribunais/hooks.ts`
+- Substituo `useTribunaisData` por `useTribunaisPage(params)` — react-query com `queryKey: ['tribunais', params]`, `keepPreviousData: true` (paginação sem flicker), `staleTime: 30s`.
+- Query separada `useAdvogadosDaPagina(ids)` só executa quando há ids.
+- Mutações continuam invalidando as chaves.
 
-- Erros 401/403 do Supabase → toast "Sessão expirada" + forçar signOut.
-- Login inválido → mensagem inline no formulário.
+### `src/routes/tribunais.tsx`
+- Estado local de filtros/página migra para **URL search params** via `validateSearch` + `Route.useSearch()` + `useNavigate()` (offset, limit=12, q, adv, status, ordem). Refresh e link compartilhável preservam contexto.
+- Remove `filtrarTribunais`/`ordenarTribunais` do cliente — apenas exibe o que veio.
+- `total` vem do `count` do Supabase; `totalPages` calculado a partir dele.
+- Debounce (300ms) na digitação de busca antes de atualizar a URL, evitando request por letra.
 
----
+### `src/features/tribunais/utils.ts`
+- Mantém `computeTribunalStatus` só para exibição (não mais para filtrar).
+- Remove funções de filtro/ordenação (agora no servidor).
 
-## Frente 2 — Refatoração de `tribunais.tsx`
+## Ganhos esperados
+- Payload inicial cai de ~290 advogados + N tribunais → 12 tribunais + só seus advogados.
+- Filtro/ordenação executam no Postgres com índices `btree` + `gin_trgm`.
+- URL passa a refletir estado (compartilhável, botão voltar funciona).
 
-Hoje o arquivo tem ~700 linhas concentrando fetch, filtros, paginação, modais e CRUD. Vou dividir **sem mudar visual nem comportamento**:
+## Fora deste ciclo
+- Contagem em tempo real via `channel` (realtime).
+- Server-side pagination para `advogados-padrao.tsx` (mesmo padrão, próxima frente).
 
-### 2.1 Nova estrutura
+## Checklist
+1. Você roda o SQL acima no SQL Editor.
+2. Implemento api/hooks/route.
+3. Verifico no preview: busca, filtro status, ordem, paginação, edição/exclusão continuam funcionando.
 
-```
-src/features/tribunais/
-├── api.ts                       # queries/mutations Supabase (fetchTribunais, updateTribunal, deleteTribunal, ...)
-├── hooks/
-│   ├── useTribunaisQuery.ts     # react-query: lista tribunais + advogados
-│   └── useTribunalMutations.ts  # mutations com invalidate
-├── components/
-│   ├── TribunalListItem.tsx     # a linha/card com grid de 5 colunas
-│   ├── TribunalFilters.tsx      # busca + filtro status + ordenação
-│   ├── TribunalPagination.tsx   # anterior/próxima + contador
-│   ├── EditTribunalDialog.tsx   # modal editar nome/sigla
-│   └── DeleteTribunalDialog.tsx # confirmação de exclusão
-└── utils.ts                     # cálculo de status (Concluído/Pendente), ordenação
-```
-
-- `src/routes/tribunais.tsx` fica com **~80 linhas**: só compõe `<TribunalFilters>`, `<TribunalListItem>`s e `<TribunalPagination>`.
-- Introduz **react-query** (`@tanstack/react-query` já está no projeto pelo template) para cache de tribunais/advogados — resolve refetch desnecessário e substitui os `useState + useEffect` atuais.
-
-### 2.2 Zod + react-hook-form no formulário de edição
-
-O `EditTribunalDialog` passa a usar `zod` (`nome: min(1).max(120)`, `sigla: max(20).optional()`) — padrão que será estendido para `novo-cadastro` na próxima frente.
-
----
-
-## O que **não** entra neste ciclo (fica para depois)
-
-- Roles/permissões (admin vs comum).
-- Paginação/filtros server-side (Frente 3 da sua lista).
-- Testes automatizados + CI (Frente 4).
-- Refatorar `novo-cadastro.tsx` e `advogados-padrao.tsx` (mesmo padrão da Frente 2, mas fora do escopo pedido).
-
----
-
-## Checklist de execução
-
-1. Confirmar suposições (email/senha, sem signup, tudo para `authenticated`).
-2. Você roda o SQL no Supabase e desativa signup público.
-3. Implemento Frente 1 (auth) — verifico login/logout no preview.
-4. Implemento Frente 2 (refatoração) — verifico que listagem/filtros/edição continuam idênticos.
-5. Rodo scan de segurança (`security--run_security_scan`) e reporto.
-
-**Pode confirmar as 3 suposições (ou ajustar) para eu executar?**
+**Confirma que posso executar assim? (rodar o SQL e implementar)**

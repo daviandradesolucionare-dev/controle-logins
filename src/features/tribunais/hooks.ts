@@ -1,36 +1,37 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Advogado, StatusAdvogado, Tribunal } from "@/lib/supabase";
 import {
   createAdvogado,
   deleteAdvogado,
   deleteTribunal,
-  fetchAdvogados,
-  fetchTribunais,
+  fetchAdvogadosByTribunais,
+  fetchTribunaisPage,
   updateAdvogadoStatus,
   updateTribunal,
+  type TribunaisPageParams,
 } from "./api";
 
 export const tribunaisKey = ["tribunais"] as const;
 export const advogadosKey = ["advogados"] as const;
 
-export function useTribunaisData() {
-  const tribunais = useQuery({
-    queryKey: tribunaisKey,
-    queryFn: fetchTribunais,
+export function useTribunaisPage(params: TribunaisPageParams) {
+  return useQuery({
+    queryKey: [...tribunaisKey, "page", params],
+    queryFn: () => fetchTribunaisPage(params),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
-  const advogados = useQuery({
-    queryKey: advogadosKey,
-    queryFn: fetchAdvogados,
+}
+
+export function useAdvogadosDaPagina(ids: string[]) {
+  return useQuery({
+    queryKey: [...advogadosKey, "byTribunais", ids.slice().sort()],
+    queryFn: () => fetchAdvogadosByTribunais(ids),
+    enabled: ids.length > 0,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
-  return {
-    tribunais: tribunais.data ?? [],
-    advogados: advogados.data ?? [],
-    loading: tribunais.isLoading || advogados.isLoading,
-    error: tribunais.error || advogados.error,
-  };
 }
 
 export function useTribunalMutations() {
@@ -41,28 +42,33 @@ export function useTribunalMutations() {
       updateAdvogadoStatus(adv.id, status),
     onMutate: async ({ adv, status }) => {
       await qc.cancelQueries({ queryKey: advogadosKey });
-      const prev = qc.getQueryData<Advogado[]>(advogadosKey);
-      qc.setQueryData<Advogado[]>(advogadosKey, (list) =>
-        (list ?? []).map((a) => (a.id === adv.id ? { ...a, status } : a)),
-      );
-      return { prev };
+      // Atualiza todas as queries de advogados em cache (por página de tribunais)
+      const snapshots: Array<[readonly unknown[], Advogado[] | undefined]> = [];
+      const queries = qc.getQueriesData<Advogado[]>({ queryKey: advogadosKey });
+      for (const [key, data] of queries) {
+        snapshots.push([key, data]);
+        qc.setQueryData<Advogado[]>(key, (list) =>
+          (list ?? []).map((a) => (a.id === adv.id ? { ...a, status } : a)),
+        );
+      }
+      return { snapshots };
     },
     onError: (err, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(advogadosKey, ctx.prev);
+      for (const [key, data] of ctx?.snapshots ?? []) qc.setQueryData(key, data);
       toast.error("Erro ao atualizar status: " + (err as Error).message);
     },
-    onSuccess: () => toast.success("Status atualizado."),
+    onSuccess: () => {
+      toast.success("Status atualizado.");
+      // Status do tribunal pode ter mudado no server → revalida a listagem
+      qc.invalidateQueries({ queryKey: tribunaisKey });
+    },
   });
 
   const removeTribunal = useMutation({
     mutationFn: (t: Tribunal) => deleteTribunal(t.id),
-    onSuccess: (_d, t) => {
-      qc.setQueryData<Tribunal[]>(tribunaisKey, (list) =>
-        (list ?? []).filter((x) => x.id !== t.id),
-      );
-      qc.setQueryData<Advogado[]>(advogadosKey, (list) =>
-        (list ?? []).filter((a) => a.tribunal_id !== t.id),
-      );
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: tribunaisKey });
+      qc.invalidateQueries({ queryKey: advogadosKey });
       toast.success("Tribunal excluído.");
     },
     onError: (err) => toast.error("Erro ao excluir tribunal: " + (err as Error).message),
@@ -70,10 +76,9 @@ export function useTribunalMutations() {
 
   const removeAdvogado = useMutation({
     mutationFn: (a: Advogado) => deleteAdvogado(a.id),
-    onSuccess: (_d, a) => {
-      qc.setQueryData<Advogado[]>(advogadosKey, (list) =>
-        (list ?? []).filter((x) => x.id !== a.id),
-      );
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: advogadosKey });
+      qc.invalidateQueries({ queryKey: tribunaisKey });
       toast.success("Advogado excluído.");
     },
     onError: (err) => toast.error("Erro ao excluir advogado: " + (err as Error).message),
@@ -82,10 +87,8 @@ export function useTribunalMutations() {
   const saveTribunal = useMutation({
     mutationFn: ({ id, nome, sigla }: { id: string; nome: string; sigla: string | null }) =>
       updateTribunal(id, { nome, sigla }),
-    onSuccess: (updated) => {
-      qc.setQueryData<Tribunal[]>(tribunaisKey, (list) =>
-        (list ?? []).map((t) => (t.id === updated.id ? updated : t)),
-      );
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: tribunaisKey });
       toast.success("Tribunal atualizado.");
     },
     onError: (err) => toast.error("Erro ao salvar: " + (err as Error).message),
@@ -93,8 +96,9 @@ export function useTribunalMutations() {
 
   const addAdvogado = useMutation({
     mutationFn: createAdvogado,
-    onSuccess: (adv) => {
-      qc.setQueryData<Advogado[]>(advogadosKey, (list) => [...(list ?? []), adv]);
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: advogadosKey });
+      qc.invalidateQueries({ queryKey: tribunaisKey });
       toast.success("Advogado adicionado.");
     },
     onError: (err) => toast.error("Erro ao adicionar: " + (err as Error).message),
