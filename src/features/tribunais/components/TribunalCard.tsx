@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { computeTribunalStatus } from "../utils";
+import { useAuth } from "@/lib/auth";
 
 function StatusBadge({ status }: { status: StatusAdvogado }) {
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
@@ -69,6 +70,7 @@ export function TribunalCard({
   onAddAdvogado,
   onEditTribunal,
 }: TribunalCardProps) {
+  const { isAdmin } = useAuth();
   const filtered = filtroAdvogado
     ? advogados.filter((a) => a.nome.toLowerCase().includes(filtroAdvogado.toLowerCase()))
     : advogados;
@@ -154,15 +156,18 @@ export function TribunalCard({
             >
               <Plus className="mr-1 h-3.5 w-3.5" /> Advogado
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onDeleteTribunal(tribunal)}
-              aria-label="Excluir tribunal"
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {isAdmin && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => onDeleteTribunal(tribunal)}
+                aria-label="Excluir tribunal"
+                className="text-destructive hover:text-destructive"
+                title="Excluir tribunal"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -211,15 +216,17 @@ export function TribunalCard({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onDeleteAdvogado(a)}
-                      aria-label="Excluir advogado"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {isAdmin ? (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => onDeleteAdvogado(a)}
+                        aria-label="Excluir advogado"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
