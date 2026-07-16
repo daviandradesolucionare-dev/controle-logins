@@ -33,13 +33,19 @@ import { useAuth } from "@/lib/auth";
 function StatusBadge({ status }: { status: StatusAdvogado }) {
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
   const styles: Record<Exclude<StatusAdvogado, "">, string> = {
-    Ok: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-    "Não enviado": "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+    Ok: "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    "Não enviado": "border-red-500/30 bg-red-500/15 text-red-700 dark:text-red-400",
     "Enviado - Aguardando Retorno":
-      "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+      "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400",
   };
   return (
-    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", styles[status])}>
+    <Badge
+      variant="outline"
+      className={cn(
+        "inline-flex min-w-fit items-center whitespace-nowrap px-3 py-1.5 text-[12px] font-semibold",
+        styles[status],
+      )}
+    >
       {status}
     </Badge>
   );
@@ -86,7 +92,7 @@ export function TribunalCard({
   return (
     <Card className="overflow-hidden">
       <div className="border-b px-4 py-3">
-        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,220px)_auto_auto_1fr_auto] md:gap-3">
+        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,240px)_88px_124px_minmax(0,1fr)_auto] md:gap-3">
           <button
             onClick={onToggle}
             className="flex min-w-0 items-center gap-2 text-left"
@@ -100,9 +106,9 @@ export function TribunalCard({
             <span className="truncate font-semibold">{tribunal.nome}</span>
           </button>
 
-          <div className="md:min-w-[70px]">
+          <div className="flex justify-start md:min-w-[80px]">
             {tribunal.sigla ? (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="whitespace-nowrap px-2.5 py-1 text-xs">
                 {tribunal.sigla}
               </Badge>
             ) : (
@@ -110,7 +116,7 @@ export function TribunalCard({
             )}
           </div>
 
-          <div className="md:min-w-[120px]">
+          <div className="flex justify-start md:min-w-[120px]">
             {status === "Concluído" && (
               <Badge
                 className="whitespace-nowrap border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
@@ -127,20 +133,22 @@ export function TribunalCard({
                 <Clock3 className="mr-1 h-3 w-3" /> Pendente
               </Badge>
             )}
-            {status === "Vazio" && (
+                <TableHead className="pl-3">Advogado</TableHead>
               <Badge variant="outline" className="whitespace-nowrap text-muted-foreground">
-                Vazio
+                <TableHead className="w-[180px] text-right pr-3">Ações</TableHead>
               </Badge>
             )}
           </div>
 
-          <div className="flex flex-col text-xs text-muted-foreground md:text-right">
+          <div className="flex flex-col text-xs text-muted-foreground md:items-end">
             <span className="whitespace-nowrap">
               {okCount}/{total} OK · {total} advogado{total !== 1 ? "s" : ""}
             </span>
-            <span className="whitespace-nowrap text-[11px] opacity-75">Cadastrado em {dataCadastro}</span>
+            <span className="whitespace-nowrap text-[11px] opacity-75">
+              Cadastrado em {dataCadastro}
+            </span>
           </div>
-
+                  <TableCell className="font-medium pl-4">{a.nome}</TableCell>
           <div className="flex items-center justify-end gap-1">
             <Button
               size="icon"
@@ -171,7 +179,8 @@ export function TribunalCard({
               </Button>
             )}
           </div>
-        </div>
+                      className="pr-1"
+                      >
       </div>
 
       {expanded && (
@@ -180,8 +189,8 @@ export function TribunalCard({
             <TableHeader>
               <TableRow>
                 <TableHead>Advogado</TableHead>
-              <TableHead className="w-[420px]">Status</TableHead>
-              <TableHead className="w-[110px] text-right">Ações</TableHead>
+              <TableHead className="w-[440px]">Status</TableHead>
+              <TableHead className="w-[180px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,16 +203,16 @@ export function TribunalCard({
               )}
               {filtered.map((a) => (
                 <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.nome}</TableCell>
+                  <TableCell className="font-medium pl-3">{a.nome}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={a.status || "__vazio__"}
-                        onValueChange={(v) =>
-                          onChangeStatus(a, (v === "__vazio__" ? "" : v) as StatusAdvogado)
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-[240px]">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                        <Select
+                          value={a.status || "__vazio__"}
+                          onValueChange={(v) =>
+                            onChangeStatus(a, (v === "__vazio__" ? "" : v) as StatusAdvogado)
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[200px] max-w-[200px] sm:w-[240px] sm:max-w-[240px]">
                           <SelectValue placeholder="Selecionar status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -214,11 +223,11 @@ export function TribunalCard({
                           ))}
                         </SelectContent>
                       </Select>
-                      <StatusBadge status={a.status} />
-                    </div>
+                        <StatusBadge status={a.status} />
+                      </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-2">
                       <Button
                         size="icon"
                         variant="ghost"
@@ -228,18 +237,16 @@ export function TribunalCard({
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      {isAdmin && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => onDeleteAdvogado(a)}
-                          aria-label="Excluir advogado"
-                          title="Excluir advogado"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => onDeleteAdvogado(a)}
+                        aria-label="Excluir advogado"
+                        title="Excluir advogado"
+                        className="text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
