@@ -18,11 +18,12 @@ export const tribunaisKey = ["tribunais"] as const;
 export const advogadosKey = ["advogados"] as const;
 
 export function useTribunaisPage(params: TribunaisPageParams) {
-  return useQuery<TribunaisPageResult, Error, TribunaisPageResult, readonly [
-    typeof tribunaisKey[number],
-    "page",
-    TribunaisPageParams,
-  ]>({
+  return useQuery<
+    TribunaisPageResult,
+    Error,
+    TribunaisPageResult,
+    readonly [(typeof tribunaisKey)[number], "page", TribunaisPageParams]
+  >({
     queryKey: [...tribunaisKey, "page", params] as const,
     queryFn: () => fetchTribunaisPage(params),
     staleTime: 60_000,
@@ -35,11 +36,12 @@ export function useTribunaisPage(params: TribunaisPageParams) {
 }
 
 export function useAdvogadosDaPagina(ids: string[]) {
-  return useQuery<Advogado[], Error, Advogado[], readonly [
-    typeof advogadosKey[number],
-    "byTribunais",
-    string[],
-  ]>({
+  return useQuery<
+    Advogado[],
+    Error,
+    Advogado[],
+    readonly [(typeof advogadosKey)[number], "byTribunais", string[]]
+  >({
     queryKey: [...advogadosKey, "byTribunais", ids.slice().sort()] as const,
     queryFn: () => fetchAdvogadosByTribunais(ids),
     enabled: ids.length > 0,
