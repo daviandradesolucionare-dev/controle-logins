@@ -78,6 +78,11 @@ const tribunalSchema = z.object({
 });
 type TribunalForm = z.infer<typeof tribunalSchema>;
 
+const advogadoSchema = z.object({
+  nome: z.string().trim().min(1, "Informe o nome").max(160, "Máx. 160 caracteres"),
+});
+type AdvogadoForm = z.infer<typeof advogadoSchema>;
+
 const STATUSES: StatusFiltro[] = ["todos", "Concluído", "Pendente", "Vazio"];
 const ORDENS: OrdemServer[] = ["az", "za", "recent", "old"];
 function toStatus(v: string): StatusFiltro {
@@ -125,7 +130,7 @@ function TribunaisPage() {
   const advogados = advogadosQuery.data ?? [];
   const advByTribunal = useMemo(() => groupAdvogadosPorTribunal(advogados), [advogados]);
 
-  const { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado } =
+  const { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado, saveAdvogado } =
     useTribunalMutations();
 
   // Inputs locais com debounce para não requisitar a cada tecla
@@ -151,6 +156,13 @@ function TribunaisPage() {
   const editForm = useForm<TribunalForm>({
     resolver: zodResolver(tribunalSchema),
     defaultValues: { nome: "", sigla: "" },
+  });
+
+  const [editAdvOpen, setEditAdvOpen] = useState(false);
+  const [editAdv, setEditAdv] = useState<Advogado | null>(null);
+  const editAdvForm = useForm<AdvogadoForm>({
+    resolver: zodResolver(advogadoSchema),
+    defaultValues: { nome: "" },
   });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -197,6 +209,18 @@ function TribunaisPage() {
     editForm.reset({ nome: t.nome, sigla: t.sigla ?? "" });
     setEditOpen(true);
   };
+
+  const openEditAdvogado = (a: Advogado) => {
+    setEditAdv(a);
+    editAdvForm.reset({ nome: a.nome });
+    setEditAdvOpen(true);
+  };
+
+  const submitEditAdvogado = editAdvForm.handleSubmit(async (values) => {
+    if (!editAdv) return;
+    await saveAdvogado.mutateAsync({ id: editAdv.id, nome: values.nome.trim() });
+    setEditAdvOpen(false);
+  });
 
   const submitEdit = editForm.handleSubmit(async (values) => {
     if (!editTribunal) return;
@@ -336,6 +360,7 @@ function TribunaisPage() {
                 onDeleteTribunal={(x) => setTribunalParaExcluir(x)}
                 onAddAdvogado={openAddAdvogado}
                 onEditTribunal={openEditTribunal}
+                onEditAdvogado={openEditAdvogado}
               />
             ))}
           </div>
