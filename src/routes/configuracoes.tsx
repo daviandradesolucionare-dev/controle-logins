@@ -81,11 +81,14 @@ function ConfiguracoesPage() {
     supabase.storage
       .from("avatars")
       .upload(path, file, { contentType: file.type, upsert: false })
-      .then(({ error }) => {
+      .then(async ({ error }) => {
         if (error) throw error;
         const { data } = supabase.storage.from("avatars").getPublicUrl(path);
         setPhotoUrl(data.publicUrl);
-        toast.success("Foto enviada. Salve as alterações para confirmar.");
+        // Persiste imediatamente para que a foto não se perca se o usuário
+        // navegar/atualizar a página antes de clicar em "Salvar alterações".
+        await saveProfile({ id: user.id, name, photoUrl: data.publicUrl });
+        toast.success("Foto enviada e salva.");
       })
       .catch((error: Error) => toast.error("Não foi possível enviar a foto: " + error.message));
   };

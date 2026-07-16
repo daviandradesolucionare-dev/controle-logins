@@ -3,6 +3,14 @@
 
 create extension if not exists pgcrypto;
 
+create table if not exists public.user_roles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null check (role in ('admin', 'member')),
+  created_at timestamptz not null default now(),
+  unique (user_id, role)
+);
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -18,6 +26,14 @@ $$;
 
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
+
+alter table public.user_roles enable row level security;
+drop policy if exists "user_roles_read_own_or_admin" on public.user_roles;
+create policy "user_roles_read_own_or_admin" on public.user_roles for select to authenticated
+  using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "user_roles_admin_write" on public.user_roles;
+create policy "user_roles_admin_write" on public.user_roles for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
