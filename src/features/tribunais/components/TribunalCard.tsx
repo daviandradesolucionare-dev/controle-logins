@@ -251,9 +251,9 @@ export interface TribunalCardProps {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Advogado</TableHead>
+                  <TableHead className="pl-3">Advogado</TableHead>
                 <TableHead className="w-[440px]">Status</TableHead>
-                <TableHead className="w-[180px] text-right">Ações</TableHead>
+                <TableHead className="w-[180px] text-right pr-3">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
