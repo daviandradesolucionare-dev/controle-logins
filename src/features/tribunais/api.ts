@@ -113,3 +113,17 @@ export async function createAdvogado(input: {
   if (error) throw error;
   return data as Advogado;
 }
+
+export async function updateAdvogado(
+  id: string,
+  input: { nome: string },
+): Promise<Advogado> {
+  const { data, error } = await supabase
+    .from("tabelas_advogados")
+    .update(input)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Advogado;
+}
