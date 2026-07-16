@@ -11,27 +11,44 @@ import {
   updateAdvogado,
   updateTribunal,
   type TribunaisPageParams,
+  type TribunaisPageResult,
 } from "./api";
 
 export const tribunaisKey = ["tribunais"] as const;
 export const advogadosKey = ["advogados"] as const;
 
 export function useTribunaisPage(params: TribunaisPageParams) {
-  return useQuery({
-    queryKey: [...tribunaisKey, "page", params],
+  return useQuery<TribunaisPageResult, Error, TribunaisPageResult, readonly [
+    typeof tribunaisKey[number],
+    "page",
+    TribunaisPageParams,
+  ]>({
+    queryKey: [...tribunaisKey, "page", params] as const,
     queryFn: () => fetchTribunaisPage(params),
-    staleTime: 30_000,
+    staleTime: 60_000,
+    gcTime: 300_000,
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 }
 
 export function useAdvogadosDaPagina(ids: string[]) {
-  return useQuery({
-    queryKey: [...advogadosKey, "byTribunais", ids.slice().sort()],
+  return useQuery<Advogado[], Error, Advogado[], readonly [
+    typeof advogadosKey[number],
+    "byTribunais",
+    string[],
+  ]>({
+    queryKey: [...advogadosKey, "byTribunais", ids.slice().sort()] as const,
     queryFn: () => fetchAdvogadosByTribunais(ids),
     enabled: ids.length > 0,
-    staleTime: 30_000,
+    staleTime: 60_000,
+    gcTime: 300_000,
     placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 }
 

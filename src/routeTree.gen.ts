@@ -10,14 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TribunaisRouteImport } from './routes/tribunais'
+import { Route as SolicitarAcessoRouteImport } from './routes/solicitar-acesso'
 import { Route as NovoCadastroRouteImport } from './routes/novo-cadastro'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as AdvogadosPadraoRouteImport } from './routes/advogados-padrao'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TribunaisRoute = TribunaisRouteImport.update({
   id: '/tribunais',
   path: '/tribunais',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolicitarAcessoRoute = SolicitarAcessoRouteImport.update({
+  id: '/solicitar-acesso',
+  path: '/solicitar-acesso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NovoCadastroRoute = NovoCadastroRouteImport.update({
@@ -28,6 +35,11 @@ const NovoCadastroRoute = NovoCadastroRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdvogadosPadraoRoute = AdvogadosPadraoRouteImport.update({
@@ -44,23 +56,29 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
+  '/solicitar-acesso': typeof SolicitarAcessoRoute
   '/tribunais': typeof TribunaisRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
+  '/solicitar-acesso': typeof SolicitarAcessoRoute
   '/tribunais': typeof TribunaisRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
+  '/configuracoes': typeof ConfiguracoesRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
+  '/solicitar-acesso': typeof SolicitarAcessoRoute
   '/tribunais': typeof TribunaisRoute
 }
 export interface FileRouteTypes {
@@ -68,25 +86,38 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/advogados-padrao'
+    | '/configuracoes'
     | '/login'
     | '/novo-cadastro'
+    | '/solicitar-acesso'
     | '/tribunais'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/advogados-padrao' | '/login' | '/novo-cadastro' | '/tribunais'
+  to:
+    | '/'
+    | '/advogados-padrao'
+    | '/configuracoes'
+    | '/login'
+    | '/novo-cadastro'
+    | '/solicitar-acesso'
+    | '/tribunais'
   id:
     | '__root__'
     | '/'
     | '/advogados-padrao'
+    | '/configuracoes'
     | '/login'
     | '/novo-cadastro'
+    | '/solicitar-acesso'
     | '/tribunais'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdvogadosPadraoRoute: typeof AdvogadosPadraoRoute
+  ConfiguracoesRoute: typeof ConfiguracoesRoute
   LoginRoute: typeof LoginRoute
   NovoCadastroRoute: typeof NovoCadastroRoute
+  SolicitarAcessoRoute: typeof SolicitarAcessoRoute
   TribunaisRoute: typeof TribunaisRoute
 }
 
@@ -97,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/tribunais'
       fullPath: '/tribunais'
       preLoaderRoute: typeof TribunaisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solicitar-acesso': {
+      id: '/solicitar-acesso'
+      path: '/solicitar-acesso'
+      fullPath: '/solicitar-acesso'
+      preLoaderRoute: typeof SolicitarAcessoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/novo-cadastro': {
@@ -111,6 +149,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/advogados-padrao': {
@@ -133,10 +178,22 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdvogadosPadraoRoute: AdvogadosPadraoRoute,
+  ConfiguracoesRoute: ConfiguracoesRoute,
   LoginRoute: LoginRoute,
   NovoCadastroRoute: NovoCadastroRoute,
+  SolicitarAcessoRoute: SolicitarAcessoRoute,
   TribunaisRoute: TribunaisRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

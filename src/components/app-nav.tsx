@@ -1,11 +1,20 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Moon, Sun, Scale, Wifi, WifiOff, LogOut, User as UserIcon } from "lucide-react";
+import { Moon, Sun, Scale, Wifi, WifiOff, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getProfile, type UserProfileData } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 function ConnectionBadge() {
@@ -39,7 +48,8 @@ function ConnectionBadge() {
     <div
       className={cn(
         "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
-        status === "online" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+        status === "online" &&
+          "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
         status === "offline" && "border-destructive/30 bg-destructive/10 text-destructive",
         status === "checking" && "border-muted-foreground/30 bg-muted text-muted-foreground",
       )}
@@ -55,6 +65,20 @@ export function AppNav() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [profile, setProfile] = useState<Pick<UserProfileData, "name" | "photoUrl">>({
+    name: "",
+    photoUrl: null,
+  });
+
+  useEffect(() => {
+    if (!user) {
+      setProfile({ name: "", photoUrl: null });
+      return;
+    }
+    getProfile({ id: user.id, email: user.email, fallbackName: user.user_metadata?.full_name })
+      .then(({ name, photoUrl }) => setProfile({ name, photoUrl }))
+      .catch(() => setProfile({ name: user.user_metadata?.full_name || "", photoUrl: null }));
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -112,10 +136,44 @@ export function AppNav() {
           </Button>
           {user && (
             <>
-              <div className="hidden items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground md:flex">
-                <UserIcon className="h-3 w-3" />
-                <span className="max-w-[160px] truncate">{user.email}</span>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center rounded-full border border-border/70 bg-background/80 p-1 shadow-sm transition-colors hover:bg-accent"
+                    aria-label="Abrir configurações"
+                  >
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage
+                        src={profile.photoUrl ?? undefined}
+                        alt={profile.name || user.email || "Usuário"}
+                      />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {profile.name ? (
+                          profile.name.charAt(0).toUpperCase()
+                        ) : (
+                          <UserIcon className="h-4 w-4" />
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-sm">
+                    <p className="font-medium">{profile.name || user.email}</p>
+                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/configuracoes"
+                      className="flex w-full cursor-pointer items-center gap-2"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Configurações
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="ghost"
                 size="icon"

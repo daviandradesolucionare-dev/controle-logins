@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Building2, Users, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { getDefaultLawyers } from "@/lib/default-lawyers";
+import { createTribunalWithLawyers } from "@/features/tribunais/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,7 +20,17 @@ function NovoCadastro() {
   const [sigla, setSigla] = useState("");
   const [carregarPadrao, setCarregarPadrao] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [defaults] = useState<string[]>(() => getDefaultLawyers());
+  const [defaults, setDefaults] = useState<string[]>([]);
+  const [loadingDefaults, setLoadingDefaults] = useState(true);
+
+  useEffect(() => {
+    getDefaultLawyers()
+      .then(setDefaults)
+      .catch((error: Error) =>
+        toast.error("Não foi possível carregar a lista padrão: " + error.message),
+      )
+      .finally(() => setLoadingDefaults(false));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,40 +39,23 @@ function NovoCadastro() {
       return;
     }
     setSaving(true);
-    const { data: tribunal, error: tErr } = await supabase
-      .from("tabelas_tribunais")
-      .insert({ nome: nome.trim(), sigla: sigla.trim() || null })
-      .select()
-      .single();
-
-    if (tErr || !tribunal) {
+    try {
+      await createTribunalWithLawyers({
+        nome: nome.trim(),
+        sigla: sigla.trim(),
+        lawyerNames: carregarPadrao ? defaults : [],
+      });
+      toast.success(
+        carregarPadrao
+          ? `Tribunal criado com ${defaults.length} advogados padrão.`
+          : "Tribunal criado.",
+      );
+      navigate({ to: "/tribunais" });
+    } catch (error) {
+      toast.error("Erro ao criar tribunal: " + (error as Error).message);
+    } finally {
       setSaving(false);
-      toast.error("Erro ao criar tribunal: " + (tErr?.message ?? "desconhecido"));
-      return;
     }
-
-    if (carregarPadrao) {
-      const rows = defaults.map((n) => ({
-        tribunal_id: tribunal.id,
-        nome: n,
-        status: "Não enviado",
-      }));
-      const { error: aErr } = await supabase.from("tabelas_advogados").insert(rows);
-      if (aErr) {
-        setSaving(false);
-        toast.error("Tribunal criado, mas falhou ao carregar advogados: " + aErr.message);
-        navigate({ to: "/tribunais" });
-        return;
-      }
-    }
-
-    setSaving(false);
-    toast.success(
-      carregarPadrao
-        ? `Tribunal criado com ${defaults.length} advogados padrão.`
-        : "Tribunal criado.",
-    );
-    navigate({ to: "/tribunais" });
   };
 
   return (
@@ -70,8 +63,8 @@ function NovoCadastro() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Novo Cadastro</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cadastre um novo tribunal e, opcionalmente, carregue a lista padrão de{" "}
-          {defaults.length} advogados.
+          Cadastre um novo tribunal e, opcionalmente, carregue a lista padrão de {defaults.length}{" "}
+          advogados.
         </p>
       </div>
 
@@ -127,7 +120,7 @@ function NovoCadastro() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving || loadingDefaults}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Criar Tribunal
               </Button>

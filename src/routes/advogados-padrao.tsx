@@ -2,20 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Save, RotateCcw, Pencil, Check, X, Users } from "lucide-react";
 import { toast } from "sonner";
-import {
-  getDefaultLawyers,
-  saveDefaultLawyers,
-  resetDefaultLawyers,
-} from "@/lib/default-lawyers";
+import { getDefaultLawyers, saveDefaultLawyers, resetDefaultLawyers } from "@/lib/default-lawyers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,12 +30,22 @@ function AdvogadosPadrao() {
   const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
-    setList(getDefaultLawyers());
+    getDefaultLawyers()
+      .then(setList)
+      .catch((error: Error) => toast.error("Não foi possível carregar a lista: " + error.message));
   }, []);
 
-  const persist = (next: string[]) => {
+  const persist = async (next: string[]) => {
     setList(next);
-    saveDefaultLawyers(next);
+    try {
+      await saveDefaultLawyers(next);
+    } catch (error) {
+      toast.error("Não foi possível salvar a lista: " + (error as Error).message);
+      getDefaultLawyers()
+        .then(setList)
+        .catch(() => undefined);
+      throw error;
+    }
   };
 
   const adicionar = () => {
@@ -58,14 +58,14 @@ function AdvogadosPadrao() {
       toast.error("Este advogado já existe na lista.");
       return;
     }
-    persist([...list, n]);
+    void persist([...list, n]);
     setNovo("");
     toast.success("Advogado adicionado à lista padrão.");
   };
 
   const excluir = (idx: number) => {
     const nome = list[idx];
-    persist(list.filter((_, i) => i !== idx));
+    void persist(list.filter((_, i) => i !== idx));
     toast.success(`"${nome}" removido da lista padrão.`);
   };
 
@@ -83,17 +83,22 @@ function AdvogadosPadrao() {
     }
     const next = [...list];
     next[editIdx] = v;
-    persist(next);
+    void persist(next);
     setEditIdx(null);
     setEditValue("");
     toast.success("Nome atualizado.");
   };
 
-  const resetar = () => {
-    const base = resetDefaultLawyers();
-    setList(base);
-    setConfirmReset(false);
-    toast.success("Lista padrão restaurada.");
+  const resetar = async () => {
+    try {
+      const base = await resetDefaultLawyers();
+      setList(base);
+      toast.success("Lista padrão restaurada.");
+    } catch (error) {
+      toast.error("Não foi possível restaurar a lista: " + (error as Error).message);
+    } finally {
+      setConfirmReset(false);
+    }
   };
 
   return (
@@ -102,8 +107,8 @@ function AdvogadosPadrao() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Advogados Padrão</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gerencie a lista carregada automaticamente ao criar um novo tribunal. As
-            alterações são salvas neste navegador.
+            Gerencie a lista carregada automaticamente ao criar um novo tribunal. As Alterações são
+            compartilhadas com todos os usuários autorizados.
           </p>
         </div>
         <Button variant="outline" onClick={() => setConfirmReset(true)}>
@@ -117,9 +122,7 @@ function AdvogadosPadrao() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Plus className="h-4 w-4 text-primary" /> Adicionar advogado
           </CardTitle>
-          <CardDescription>
-            O novo nome será incluído no fim da lista padrão.
-          </CardDescription>
+          <CardDescription>O novo nome será incluído no fim da lista padrão.</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -156,13 +159,8 @@ function AdvogadosPadrao() {
           ) : (
             <ol className="divide-y">
               {list.map((nome, idx) => (
-                <li
-                  key={`${nome}-${idx}`}
-                  className="flex items-center gap-3 py-2 text-sm"
-                >
-                  <span className="w-8 shrink-0 text-right text-muted-foreground">
-                    {idx + 1}.
-                  </span>
+                <li key={`${nome}-${idx}`} className="flex items-center gap-3 py-2 text-sm">
+                  <span className="w-8 shrink-0 text-right text-muted-foreground">{idx + 1}.</span>
                   {editIdx === idx ? (
                     <>
                       <Input

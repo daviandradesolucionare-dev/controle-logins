@@ -101,7 +101,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
   shellComponent: RootShell,
@@ -112,7 +112,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>
@@ -141,13 +141,14 @@ function AuthGate() {
   const { user, loading } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const router = useRouter();
+  const isPublicRoute = pathname === "/login" || pathname === "/solicitar-acesso";
 
   // Se sessão for perdida durante a navegação, invalida cache.
   useEffect(() => {
-    if (!loading && !user && pathname !== "/login") {
+    if (!loading && !user && !isPublicRoute) {
       router.navigate({ to: "/login" });
     }
-  }, [loading, user, pathname, router]);
+  }, [loading, user, isPublicRoute, router]);
 
   if (loading) {
     return (
@@ -157,8 +158,8 @@ function AuthGate() {
     );
   }
 
-  // Rota de login é sempre renderizada sem shell
-  if (pathname === "/login") {
+  // Rotas públicas são renderizadas sem shell
+  if (isPublicRoute) {
     return <Outlet />;
   }
 

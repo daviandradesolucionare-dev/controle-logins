@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,9 +42,7 @@ function LoginPage() {
     setSubmitting(false);
     if (error) {
       setServerError(
-        error.toLowerCase().includes("invalid")
-          ? "E-mail ou senha incorretos."
-          : error,
+        error.toLowerCase().includes("invalid") ? "E-mail ou senha incorretos." : error,
       );
       return;
     }
@@ -86,6 +84,14 @@ function LoginPage() {
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Entrar
           </Button>
+          <div className="text-center">
+            <Link
+              to="/solicitar-acesso"
+              className="text-sm font-medium text-primary transition-colors hover:underline"
+            >
+              Solicitar acesso
+            </Link>
+          </div>
         </form>
       </Card>
     </div>

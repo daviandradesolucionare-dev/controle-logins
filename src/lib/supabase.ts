@@ -12,11 +12,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-export type StatusAdvogado =
-  | ""
-  | "Ok"
-  | "Não enviado"
-  | "Enviado - Aguardando Retorno";
+export type StatusAdvogado = "" | "Ok" | "Não enviado" | "Enviado - Aguardando Retorno";
 
 export const STATUS_OPTIONS: StatusAdvogado[] = [
   "",

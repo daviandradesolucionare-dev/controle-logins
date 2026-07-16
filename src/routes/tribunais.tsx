@@ -14,12 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import {
-  STATUS_OPTIONS,
-  type Advogado,
-  type StatusAdvogado,
-  type Tribunal,
-} from "@/lib/supabase";
+import { STATUS_OPTIONS, type Advogado, type StatusAdvogado, type Tribunal } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -54,9 +49,11 @@ import {
   useTribunalMutations,
 } from "@/features/tribunais/hooks";
 import { groupAdvogadosPorTribunal } from "@/features/tribunais/utils";
-import type { OrdemServer, StatusFiltro } from "@/features/tribunais/api";
+import type { OrdemServer, StatusFiltro, TribunalComStatus } from "@/features/tribunais/api";
 
 const PAGE_SIZE = 12;
+const EMPTY_TRIBUNAIS: TribunalComStatus[] = [];
+const EMPTY_ADVOGADOS: Advogado[] = [];
 
 const searchSchema = z.object({
   q: fallback(z.string(), "").default(""),
@@ -121,13 +118,13 @@ function TribunaisPage() {
     offset: search.offset,
     limit: PAGE_SIZE,
   });
-  const rows = pageQuery.data?.rows ?? [];
+  const rows = pageQuery.data?.rows ?? EMPTY_TRIBUNAIS;
   const total = pageQuery.data?.total ?? 0;
   const loading = pageQuery.isLoading;
 
   const pageIds = useMemo(() => rows.map((r) => r.id), [rows]);
   const advogadosQuery = useAdvogadosDaPagina(pageIds);
-  const advogados = advogadosQuery.data ?? [];
+  const advogados = advogadosQuery.data ?? EMPTY_ADVOGADOS;
   const advByTribunal = useMemo(() => groupAdvogadosPorTribunal(advogados), [advogados]);
 
   const { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado, saveAdvogado } =
@@ -282,10 +279,7 @@ function TribunaisPage() {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Status do tribunal
             </label>
-            <Select
-              value={search.status}
-              onValueChange={(v) => setSearch({ status: toStatus(v) })}
-            >
+            <Select value={search.status} onValueChange={(v) => setSearch({ status: toStatus(v) })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -367,7 +361,8 @@ function TribunaisPage() {
           {totalPages > 1 && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">
-                Mostrando {search.offset + 1}–{Math.min(search.offset + PAGE_SIZE, total)} de {total}
+                Mostrando {search.offset + 1}–{Math.min(search.offset + PAGE_SIZE, total)} de{" "}
+                {total}
               </span>
               <div className="flex items-center gap-2">
                 <Button

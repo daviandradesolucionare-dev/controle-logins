@@ -105,19 +105,26 @@ export async function createAdvogado(input: {
   nome: string;
   status: StatusAdvogado;
 }): Promise<Advogado> {
-  const { data, error } = await supabase
-    .from("tabelas_advogados")
-    .insert(input)
-    .select()
-    .single();
+  const { data, error } = await supabase.from("tabelas_advogados").insert(input).select().single();
   if (error) throw error;
   return data as Advogado;
 }
 
-export async function updateAdvogado(
-  id: string,
-  input: { nome: string },
-): Promise<Advogado> {
+export async function createTribunalWithLawyers(input: {
+  nome: string;
+  sigla: string;
+  lawyerNames: string[];
+}): Promise<Tribunal> {
+  const { data, error } = await supabase.rpc("create_tribunal_with_lawyers", {
+    p_nome: input.nome,
+    p_sigla: input.sigla,
+    p_lawyer_names: input.lawyerNames,
+  });
+  if (error) throw error;
+  return data as Tribunal;
+}
+
+export async function updateAdvogado(id: string, input: { nome: string }): Promise<Advogado> {
   const { data, error } = await supabase
     .from("tabelas_advogados")
     .update(input)
