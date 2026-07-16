@@ -8,6 +8,7 @@ import {
   fetchAdvogadosByTribunais,
   fetchTribunaisPage,
   updateAdvogadoStatus,
+  updateAdvogado,
   updateTribunal,
   type TribunaisPageParams,
 } from "./api";
@@ -104,5 +105,14 @@ export function useTribunalMutations() {
     onError: (err) => toast.error("Erro ao adicionar: " + (err as Error).message),
   });
 
-  return { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado };
+  const saveAdvogado = useMutation({
+    mutationFn: ({ id, nome }: { id: string; nome: string }) => updateAdvogado(id, { nome }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: advogadosKey });
+      toast.success("Advogado atualizado.");
+    },
+    onError: (err) => toast.error("Erro ao salvar: " + (err as Error).message),
+  });
+
+  return { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado, saveAdvogado };
 }

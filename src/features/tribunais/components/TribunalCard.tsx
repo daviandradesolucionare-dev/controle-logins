@@ -39,7 +39,7 @@ function StatusBadge({ status }: { status: StatusAdvogado }) {
       "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
   };
   return (
-    <Badge variant="outline" className={cn("font-medium", styles[status])}>
+    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", styles[status])}>
       {status}
     </Badge>
   );
@@ -56,6 +56,7 @@ export interface TribunalCardProps {
   onDeleteTribunal: (t: Tribunal) => void;
   onAddAdvogado: (t: Tribunal) => void;
   onEditTribunal: (t: Tribunal) => void;
+  onEditAdvogado: (a: Advogado) => void;
 }
 
 export function TribunalCard({
@@ -69,6 +70,7 @@ export function TribunalCard({
   onDeleteTribunal,
   onAddAdvogado,
   onEditTribunal,
+  onEditAdvogado,
 }: TribunalCardProps) {
   const { isAdmin } = useAuth();
   const filtered = filtroAdvogado
@@ -84,7 +86,7 @@ export function TribunalCard({
   return (
     <Card className="overflow-hidden">
       <div className="border-b px-4 py-3">
-        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] md:gap-4">
+        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,220px)_auto_auto_1fr_auto] md:gap-3">
           <button
             onClick={onToggle}
             className="flex min-w-0 items-center gap-2 text-left"
@@ -98,7 +100,7 @@ export function TribunalCard({
             <span className="truncate font-semibold">{tribunal.nome}</span>
           </button>
 
-          <div className="md:min-w-[80px]">
+          <div className="md:min-w-[70px]">
             {tribunal.sigla ? (
               <Badge variant="secondary" className="text-xs">
                 {tribunal.sigla}
@@ -108,10 +110,10 @@ export function TribunalCard({
             )}
           </div>
 
-          <div className="md:min-w-[130px]">
+          <div className="md:min-w-[120px]">
             {status === "Concluído" && (
               <Badge
-                className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                className="whitespace-nowrap border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                 variant="outline"
               >
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
@@ -119,24 +121,24 @@ export function TribunalCard({
             )}
             {status === "Pendente" && (
               <Badge
-                className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                className="whitespace-nowrap border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400"
                 variant="outline"
               >
                 <Clock3 className="mr-1 h-3 w-3" /> Pendente
               </Badge>
             )}
             {status === "Vazio" && (
-              <Badge variant="outline" className="text-muted-foreground">
+              <Badge variant="outline" className="whitespace-nowrap text-muted-foreground">
                 Vazio
               </Badge>
             )}
           </div>
 
-          <div className="flex flex-col text-xs text-muted-foreground md:min-w-[140px] md:text-right">
-            <span>
+          <div className="flex flex-col text-xs text-muted-foreground md:text-right">
+            <span className="whitespace-nowrap">
               {okCount}/{total} OK · {total} advogado{total !== 1 ? "s" : ""}
             </span>
-            <span className="text-[11px] opacity-75">Cadastrado em {dataCadastro}</span>
+            <span className="whitespace-nowrap text-[11px] opacity-75">Cadastrado em {dataCadastro}</span>
           </div>
 
           <div className="flex items-center justify-end gap-1">
@@ -178,8 +180,8 @@ export function TribunalCard({
             <TableHeader>
               <TableRow>
                 <TableHead>Advogado</TableHead>
-                <TableHead className="w-[280px]">Status</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
+              <TableHead className="w-[420px]">Status</TableHead>
+              <TableHead className="w-[110px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -201,7 +203,7 @@ export function TribunalCard({
                           onChangeStatus(a, (v === "__vazio__" ? "" : v) as StatusAdvogado)
                         }
                       >
-                        <SelectTrigger className="h-8 w-[220px]">
+                        <SelectTrigger className="h-8 w-[240px]">
                           <SelectValue placeholder="Selecionar status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -216,17 +218,29 @@ export function TribunalCard({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {isAdmin ? (
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => onDeleteAdvogado(a)}
-                        aria-label="Excluir advogado"
-                        className="text-destructive hover:text-destructive"
+                        onClick={() => onEditAdvogado(a)}
+                        aria-label="Editar advogado"
+                        title="Editar advogado"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                    ) : null}
+                      {isAdmin && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => onDeleteAdvogado(a)}
+                          aria-label="Excluir advogado"
+                          title="Excluir advogado"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
