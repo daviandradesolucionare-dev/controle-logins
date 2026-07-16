@@ -159,7 +159,7 @@ export interface TribunalCardProps {
           <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,240px)_88px_124px_minmax(0,1fr)_auto] md:gap-3">
             <button
               onClick={onToggle}
-              className="flex min-w-0 items-center gap-2 text-left"
+              className="flex min-w-0 items-center gap-2 text-left pl-3"
               aria-label={expanded ? "Recolher" : "Expandir"}
             >
               {expanded ? (
