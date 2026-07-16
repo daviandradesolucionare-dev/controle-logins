@@ -542,6 +542,39 @@ function TribunaisPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal editar advogado */}
+      <Dialog open={editAdvOpen} onOpenChange={setEditAdvOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar advogado</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submitEditAdvogado} className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nome</label>
+              <Input autoFocus {...editAdvForm.register("nome")} />
+              {editAdvForm.formState.errors.nome && (
+                <p className="mt-1 text-xs text-destructive">
+                  {editAdvForm.formState.errors.nome.message}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditAdvOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saveAdvogado.isPending}>
+                {saveAdvogado.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
