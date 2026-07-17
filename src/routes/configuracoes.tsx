@@ -1,6 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
-import { Loader2, Lock, ShieldCheck, UserCircle2, Upload, Check, X } from "lucide-react";
+import {
+  Loader2,
+  Lock,
+  ShieldCheck,
+  UserCircle2,
+  Upload,
+  Check,
+  X,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -10,7 +20,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   decideAccessRequest,
+  deleteAccessRequest,
+  getAccessRequestActionState,
   listAccessRequests,
+  revokeAccessRequest,
   saveProfile,
   type AccessRequest,
 } from "@/lib/profile";
@@ -165,6 +178,26 @@ function ConfiguracoesPage() {
     }
   };
 
+  const handleRevokeAccess = async (id: string) => {
+    try {
+      await revokeAccessRequest(id);
+      setRequests(await listAccessRequests());
+      toast.success("Acesso revogado com sucesso.");
+    } catch (error) {
+      toast.error("Não foi possível revogar o acesso: " + (error as Error).message);
+    }
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    try {
+      await deleteAccessRequest(id);
+      setRequests((prev) => prev.filter((item) => item.id !== id));
+      toast.success("Solicitação removida.");
+    } catch (error) {
+      toast.error("Não foi possível excluir a solicitação: " + (error as Error).message);
+    }
+  };
+
   const pendingCount = useMemo(
     () => requests.filter((item) => item.status === "pending").length,
     [requests],
@@ -282,37 +315,60 @@ function ConfiguracoesPage() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {requests.map((item) => (
-                    <div key={item.id} className="rounded-lg border p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">{item.email}</p>
-                          {item.message && <p className="mt-2 text-sm">{item.message}</p>}
+                  {requests.map((item) => {
+                    const actionState = getAccessRequestActionState(item);
+                    return (
+                      <div key={item.id} className="rounded-lg border p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">{item.email}</p>
+                            {item.message && <p className="mt-2 text-sm">{item.message}</p>}
+                          </div>
+                          <div className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {item.status}
+                          </div>
                         </div>
-                        <div className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {item.status}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {actionState.canApprove && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleRequestDecision(item.id, "approved")}
+                            >
+                              <Check className="mr-1.5 h-4 w-4" /> Aceitar
+                            </Button>
+                          )}
+                          {actionState.canReject && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRequestDecision(item.id, "rejected")}
+                            >
+                              <X className="mr-1.5 h-4 w-4" /> Recusar
+                            </Button>
+                          )}
+                          {actionState.canRevoke && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRevokeAccess(item.id)}
+                            >
+                              <Undo2 className="mr-1.5 h-4 w-4" /> Revogar acesso
+                            </Button>
+                          )}
+                          {actionState.canDelete && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteRequest(item.id)}
+                            >
+                              <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      {item.status === "pending" && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleRequestDecision(item.id, "approved")}
-                          >
-                            <Check className="mr-1.5 h-4 w-4" /> Aceitar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRequestDecision(item.id, "rejected")}
-                          >
-                            <X className="mr-1.5 h-4 w-4" /> Recusar
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </Card>
