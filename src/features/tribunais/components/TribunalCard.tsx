@@ -92,7 +92,7 @@ export function TribunalCard({
   return (
     <Card className="overflow-hidden">
       <div className="border-b px-4 py-3">
-        <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,240px)_88px_124px_minmax(0,1fr)_auto] md:gap-3">
+        <div className="grid grid-cols-1 items-center gap-x-4 gap-y-2 md:grid-cols-[minmax(0,240px)_88px_124px_minmax(0,1fr)_auto] md:gap-3">
           <button
             onClick={onToggle}
             className="flex min-w-0 items-center gap-2 text-left pl-3"
@@ -106,7 +106,7 @@ export function TribunalCard({
             <span className="truncate font-semibold">{tribunal.nome}</span>
           </button>
 
-          <div className="flex justify-start md:min-w-[80px]">
+          <div className="flex justify-start gap-2 md:min-w-[80px]">
             {tribunal.sigla ? (
               <Badge variant="secondary" className="whitespace-nowrap px-2.5 py-1 text-xs">
                 {tribunal.sigla}
