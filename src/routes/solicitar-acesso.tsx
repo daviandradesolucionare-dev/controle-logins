@@ -25,6 +25,10 @@ function SolicitarAcessoPage() {
       toast.error("Informe seu nome e um e-mail válido para solicitar acesso.");
       return;
     }
+    if (!message.trim()) {
+      toast.error("Descreva o motivo da sua solicitação.");
+      return;
+    }
     try {
       setSending(true);
       await createAccessRequest({ name, email, message });
@@ -33,7 +37,12 @@ function SolicitarAcessoPage() {
       );
       navigate({ to: "/login" });
     } catch (error) {
-      toast.error("Não foi possível enviar a solicitação: " + (error as Error).message);
+      const err = error as Error & { code?: string };
+      if (err.code === "23505") {
+        toast.error("Já existe uma solicitação pendente para esse e-mail. Aguarde a análise.");
+      } else {
+        toast.error("Não foi possível enviar a solicitação: " + err.message);
+      }
     } finally {
       setSending(false);
     }
@@ -69,11 +78,11 @@ function SolicitarAcessoPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Mensagem</label>
+            <label className="mb-1 block text-sm font-medium">Motivo da solicitação</label>
             <Input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Descreva seu pedido"
+              placeholder="Explique por que você precisa de acesso"
             />
           </div>
 
