@@ -116,7 +116,7 @@ export function TribunalCard({
             )}
           </div>
 
-          <div className="flex justify-start md:min-w-[120px]">
+          <div className="flex justify-start ml-0 md:ml-2 md:min-w-[120px]">
             {status === "Concluído" && (
               <Badge
                 className="whitespace-nowrap border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"

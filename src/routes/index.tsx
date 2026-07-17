@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CardSearchInput } from "@/features/dashboard/components/CardSearchInput";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -20,6 +21,7 @@ const EMPTY_ADVOGADOS: Advogado[] = [];
 function Dashboard() {
   const [busca, setBusca] = useState("");
   const [statusEmFoco, setStatusEmFoco] = useState("Todos");
+  const [buscaPanorama, setBuscaPanorama] = useState("");
 
   const dashboardQuery = useQuery<{ tribunais: Tribunal[]; advogados: Advogado[] }>({
     queryKey: ["dashboard", "data"],
@@ -78,6 +80,16 @@ function Dashboard() {
 
   const concluidos = statusTribunais.filter((s) => s.status === "Concluído").length;
   const pendentes = statusTribunais.filter((s) => s.status === "Pendente").length;
+
+  const statusTribunaisFiltrados = useMemo(() => {
+    const termo = buscaPanorama.trim().toLowerCase();
+    if (!termo) return statusTribunais;
+    return statusTribunais.filter(
+      ({ tribunal }) =>
+        tribunal.nome.toLowerCase().includes(termo) ||
+        tribunal.sigla?.toLowerCase().includes(termo),
+    );
+  }, [statusTribunais, buscaPanorama]);
 
   const statusChartData = useMemo(
     () => [
@@ -339,13 +351,29 @@ function Dashboard() {
                   </Badge>
                 </div>
               </div>
+              <div className="mt-3">
+                <CardSearchInput
+                  value={buscaPanorama}
+                  onChange={setBuscaPanorama}
+                  placeholder="Buscar tribunal por nome ou sigla..."
+                />
+              </div>
             </CardHeader>
             <CardContent>
-              {statusTribunais.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum tribunal cadastrado.</p>
+              {statusTribunaisFiltrados.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {statusTribunais.length === 0
+                    ? "Nenhum tribunal cadastrado."
+                    : "Nenhum tribunal encontrado para essa busca."}
+                </p>
               ) : (
-                <ul className="divide-y">
-                  {statusTribunais.map(({ tribunal, okCount, total, status }) => (
+                <ul
+                  className="max-h-[480px] divide-y overflow-y-auto"
+                  role="region"
+                  aria-label="Lista de tribunais"
+                  tabIndex={0}
+                >
+                  {statusTribunaisFiltrados.map(({ tribunal, okCount, total, status }) => (
                     <li
                       key={tribunal.id}
                       className="flex flex-wrap items-center justify-between gap-2 py-2"
