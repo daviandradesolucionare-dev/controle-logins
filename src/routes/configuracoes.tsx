@@ -54,7 +54,8 @@ function ConfiguracoesPage() {
         setPhotoUrl(profile.photoUrl || user.user_metadata?.avatar_url || null);
       })
       .catch((error: Error) => toast.error("Não foi possível carregar o perfil: " + error.message));
-  }, [navigate, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, user?.id]);
 
   useEffect(() => {
     if (!isAdmin || tab !== "permissoes") return;

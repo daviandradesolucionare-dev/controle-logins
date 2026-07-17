@@ -105,6 +105,10 @@ export async function getProfile(input: {
     .maybeSingle();
   if (error) {
     if (isMissingRemoteTable(error)) {
+      console.warn(
+        "Tabela 'profiles' inacessível/ausente; usando fallback local. Isso não deveria acontecer em produção.",
+        error,
+      );
       return getFallbackProfile(input);
     }
     throw error;
@@ -129,6 +133,10 @@ export async function saveProfile(profile: Pick<UserProfileData, "id" | "name" |
   });
   if (error) {
     if (isMissingRemoteTable(error)) {
+      console.warn(
+        "Tabela 'profiles' inacessível/ausente; salvando só localmente. Isso não deveria acontecer em produção.",
+        error,
+      );
       saveFallbackProfile({
         id: profile.id,
         name: profile.name.trim(),

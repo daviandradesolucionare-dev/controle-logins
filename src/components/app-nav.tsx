@@ -78,7 +78,8 @@ export function AppNav() {
     getProfile({ id: user.id, email: user.email, fallbackName: user.user_metadata?.full_name })
       .then(({ name, photoUrl }) => setProfile({ name, photoUrl }))
       .catch(() => setProfile({ name: user.user_metadata?.full_name || "", photoUrl: null }));
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     await signOut();
