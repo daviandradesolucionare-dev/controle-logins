@@ -82,26 +82,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Controle de Distribuição — Tribunais e Advogados" },
+      { title: "Controle de Logins" },
       {
         name: "description",
         content:
           "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status.",
       },
-      { property: "og:title", content: "Controle de Distribuição — Tribunais e Advogados" },
+      { property: "og:title", content: "Controle de Logins" },
       {
         property: "og:description",
-        content: "Gestão de tribunais, advogados e status de distribuição.",
+        content: "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Controle de Logins" },
+      { name: "twitter:description", content: "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f09c468d-f2d1-4d96-bb88-33767b2e450c" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f09c468d-f2d1-4d96-bb88-33767b2e450c" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
   shellComponent: RootShell,
