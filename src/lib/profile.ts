@@ -14,6 +14,7 @@ export interface AccessRequest {
   message: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
+  revokedAt: string | null;
 }
 
 type ProfileRow = { id: string; display_name: string; avatar_url: string | null };
@@ -24,6 +25,7 @@ type AccessRequestRow = {
   message: string;
   status: AccessRequest["status"];
   created_at: string;
+  revoked_at: string | null;
 };
 
 const PROFILE_FALLBACK_KEY = "controle-logins-profile-v2";
@@ -176,13 +178,14 @@ export async function createAccessRequest(input: {
     message,
     status: "pending",
     createdAt: new Date().toISOString(),
+    revokedAt: null,
   };
 }
 
 export async function listAccessRequests(): Promise<AccessRequest[]> {
   const { data, error } = await supabase
     .from("access_requests")
-    .select("id,name,email,message,status,created_at")
+    .select("id,name,email,message,status,created_at,revoked_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as AccessRequestRow[]).map(toAccessRequest);
@@ -192,8 +195,43 @@ export async function decideAccessRequest(id: string, decision: "approved" | "re
   const { data, error } = await supabase.functions.invoke("approve-access-request", {
     body: { requestId: id, decision },
   });
-  if (error) throw error;
+  if (error) throw new Error(await extractFunctionErrorMessage(error));
   if (!data?.ok) throw new Error("Não foi possível processar a solicitação.");
+}
+
+export async function deleteAccessRequest(id: string) {
+  const { error } = await supabase.from("access_requests").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function revokeAccess(requestId: string) {
+  const { data, error } = await supabase.functions.invoke("revoke-user-access", {
+    body: { requestId },
+  });
+  if (error) throw new Error(await extractFunctionErrorMessage(error));
+  if (!data?.ok) throw new Error("Não foi possível revogar o acesso.");
+}
+
+/**
+ * O supabase-js só expõe "Edge Function returned a non-2xx status code" por
+ * padrão para erros de função; o corpo real da resposta (com o motivo)
+ * fica em error.context. Aqui tentamos ler esse corpo para mostrar algo
+ * útil ao usuário em vez do texto genérico.
+ */
+async function extractFunctionErrorMessage(error: unknown): Promise<string> {
+  const withContext = error as { context?: Response; message?: string };
+  if (withContext?.context && typeof withContext.context.text === "function") {
+    try {
+      const bodyClone = withContext.context.clone
+        ? withContext.context.clone()
+        : withContext.context;
+      const text = await bodyClone.text();
+      if (text) return text;
+    } catch {
+      // ignora e cai no fallback abaixo
+    }
+  }
+  return withContext?.message || "Não foi possível processar a solicitação.";
 }
 
 function toAccessRequest(row: AccessRequestRow): AccessRequest {
@@ -204,5 +242,6 @@ function toAccessRequest(row: AccessRequestRow): AccessRequest {
     message: row.message,
     status: row.status,
     createdAt: row.created_at,
+    revokedAt: row.revoked_at,
   };
 }

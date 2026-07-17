@@ -91,14 +91,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Controle de Logins" },
       {
         property: "og:description",
-        content: "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status.",
+        content:
+          "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Controle de Logins" },
-      { name: "twitter:description", content: "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f09c468d-f2d1-4d96-bb88-33767b2e450c" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f09c468d-f2d1-4d96-bb88-33767b2e450c" },
+      {
+        name: "twitter:description",
+        content:
+          "Sistema de gestão de distribuição de casos: cadastro de tribunais, advogados e acompanhamento de status.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f09c468d-f2d1-4d96-bb88-33767b2e450c",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f09c468d-f2d1-4d96-bb88-33767b2e450c",
+      },
     ],
     links: [
       {

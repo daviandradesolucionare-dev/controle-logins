@@ -1,6 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
-import { Loader2, Lock, ShieldCheck, UserCircle2, Upload, Check, X } from "lucide-react";
+import {
+  Loader2,
+  Lock,
+  ShieldCheck,
+  ShieldOff,
+  UserCircle2,
+  Upload,
+  Check,
+  X,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -10,7 +20,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   decideAccessRequest,
+  deleteAccessRequest,
   listAccessRequests,
+  revokeAccess,
   saveProfile,
   type AccessRequest,
 } from "@/lib/profile";
@@ -165,6 +177,33 @@ function ConfiguracoesPage() {
     }
   };
 
+  const handleDeleteRequest = async (item: AccessRequest) => {
+    if (!window.confirm(`Excluir a solicitação de ${item.name} (${item.email})?`)) return;
+    try {
+      await deleteAccessRequest(item.id);
+      setRequests(await listAccessRequests());
+      toast.success("Solicitação excluída.");
+    } catch (error) {
+      toast.error("Não foi possível excluir: " + (error as Error).message);
+    }
+  };
+
+  const handleRevokeAccess = async (item: AccessRequest) => {
+    if (
+      !window.confirm(
+        `Revogar o acesso de ${item.name} (${item.email})? A pessoa não conseguirá mais fazer login.`,
+      )
+    )
+      return;
+    try {
+      await revokeAccess(item.id);
+      setRequests(await listAccessRequests());
+      toast.success("Acesso revogado.");
+    } catch (error) {
+      toast.error("Não foi possível revogar: " + (error as Error).message);
+    }
+  };
+
   const pendingCount = useMemo(
     () => requests.filter((item) => item.status === "pending").length,
     [requests],
@@ -291,26 +330,46 @@ function ConfiguracoesPage() {
                           {item.message && <p className="mt-2 text-sm">{item.message}</p>}
                         </div>
                         <div className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {item.status}
+                          {item.revokedAt ? "revogado" : item.status}
                         </div>
                       </div>
-                      {item.status === "pending" && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleRequestDecision(item.id, "approved")}
-                          >
-                            <Check className="mr-1.5 h-4 w-4" /> Aceitar
-                          </Button>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {item.status === "pending" && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleRequestDecision(item.id, "approved")}
+                            >
+                              <Check className="mr-1.5 h-4 w-4" /> Aceitar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRequestDecision(item.id, "rejected")}
+                            >
+                              <X className="mr-1.5 h-4 w-4" /> Recusar
+                            </Button>
+                          </>
+                        )}
+                        {item.status === "approved" && !item.revokedAt && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleRequestDecision(item.id, "rejected")}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleRevokeAccess(item)}
                           >
-                            <X className="mr-1.5 h-4 w-4" /> Recusar
+                            <ShieldOff className="mr-1.5 h-4 w-4" /> Revogar acesso
                           </Button>
-                        </div>
-                      )}
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteRequest(item)}
+                        >
+                          <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
