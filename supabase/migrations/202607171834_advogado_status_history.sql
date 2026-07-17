@@ -1,6 +1,6 @@
 create table if not exists public.advogado_status_history (
   id uuid primary key default gen_random_uuid(),
-  advogado_id uuid not null references public.tabelas_advogados(id) on delete cascade,
+  advogado_id bigint not null references public.tabelas_advogados(id) on delete cascade,
   previous_status text,
   next_status text not null,
   changed_by uuid references auth.users(id),
