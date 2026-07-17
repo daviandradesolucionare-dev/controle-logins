@@ -95,10 +95,15 @@ Deno.serve(async (request) => {
       : null;
 
     if (!existingUser) {
+      // O Site URL configurado no projeto Supabase ainda aponta para
+      // localhost (config de desenvolvimento) — passamos redirectTo
+      // explicitamente para não depender disso.
+      const appUrl = Deno.env.get("APP_URL") || "https://controle-logins.vercel.app";
       const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
         accessRequest.email,
         {
           data: { full_name: accessRequest.name },
+          redirectTo: `${appUrl}/definir-senha`,
         },
       );
       if (inviteError) {

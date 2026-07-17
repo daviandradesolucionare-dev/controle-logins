@@ -13,6 +13,7 @@ import { Route as TribunaisRouteImport } from './routes/tribunais'
 import { Route as SolicitarAcessoRouteImport } from './routes/solicitar-acesso'
 import { Route as NovoCadastroRouteImport } from './routes/novo-cadastro'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DefinirSenhaRouteImport } from './routes/definir-senha'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as AdvogadosPadraoRouteImport } from './routes/advogados-padrao'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,6 +38,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DefinirSenhaRoute = DefinirSenhaRouteImport.update({
+  id: '/definir-senha',
+  path: '/definir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/definir-senha': typeof DefinirSenhaRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
   '/solicitar-acesso': typeof SolicitarAcessoRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/definir-senha': typeof DefinirSenhaRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
   '/solicitar-acesso': typeof SolicitarAcessoRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/advogados-padrao': typeof AdvogadosPadraoRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/definir-senha': typeof DefinirSenhaRoute
   '/login': typeof LoginRoute
   '/novo-cadastro': typeof NovoCadastroRoute
   '/solicitar-acesso': typeof SolicitarAcessoRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/advogados-padrao'
     | '/configuracoes'
+    | '/definir-senha'
     | '/login'
     | '/novo-cadastro'
     | '/solicitar-acesso'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/advogados-padrao'
     | '/configuracoes'
+    | '/definir-senha'
     | '/login'
     | '/novo-cadastro'
     | '/solicitar-acesso'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/advogados-padrao'
     | '/configuracoes'
+    | '/definir-senha'
     | '/login'
     | '/novo-cadastro'
     | '/solicitar-acesso'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdvogadosPadraoRoute: typeof AdvogadosPadraoRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
+  DefinirSenhaRoute: typeof DefinirSenhaRoute
   LoginRoute: typeof LoginRoute
   NovoCadastroRoute: typeof NovoCadastroRoute
   SolicitarAcessoRoute: typeof SolicitarAcessoRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/definir-senha': {
+      id: '/definir-senha'
+      path: '/definir-senha'
+      fullPath: '/definir-senha'
+      preLoaderRoute: typeof DefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/configuracoes': {
       id: '/configuracoes'
       path: '/configuracoes'
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdvogadosPadraoRoute: AdvogadosPadraoRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
+  DefinirSenhaRoute: DefinirSenhaRoute,
   LoginRoute: LoginRoute,
   NovoCadastroRoute: NovoCadastroRoute,
   SolicitarAcessoRoute: SolicitarAcessoRoute,
