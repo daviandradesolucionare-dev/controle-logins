@@ -159,17 +159,24 @@ export async function createAccessRequest(input: {
   message: string;
 }): Promise<AccessRequest> {
   removeLegacyLocalData();
-  const { data, error } = await supabase
-    .from("access_requests")
-    .insert({
-      name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      message: input.message.trim(),
-    })
-    .select("id,name,email,message,status,created_at")
-    .single();
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+  const message = input.message.trim();
+  // Não encadeamos .select() aqui: quem envia essa solicitação ainda não
+  // tem conta (é anônimo), e a política de leitura de access_requests é
+  // restrita a admins. Pedir o retorno da linha inserida faria o Supabase
+  // tentar reler o registro com um papel que não tem permissão de SELECT,
+  // resultando em erro de RLS mesmo com o INSERT tendo sido permitido.
+  const { error } = await supabase.from("access_requests").insert({ name, email, message });
   if (error) throw error;
-  return toAccessRequest(data as AccessRequestRow);
+  return {
+    id: crypto.randomUUID(),
+    name,
+    email,
+    message,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export async function listAccessRequests(): Promise<AccessRequest[]> {
