@@ -21,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   decideAccessRequest,
   deleteAccessRequest,
+  getAccessRequestActionState,
   listAccessRequests,
   revokeAccess,
   saveProfile,
@@ -181,7 +182,7 @@ function ConfiguracoesPage() {
     if (!window.confirm(`Excluir a solicitação de ${item.name} (${item.email})?`)) return;
     try {
       await deleteAccessRequest(item.id);
-      setRequests(await listAccessRequests());
+      setRequests((prev) => prev.filter((r) => r.id !== item.id));
       toast.success("Solicitação excluída.");
     } catch (error) {
       toast.error("Não foi possível excluir: " + (error as Error).message);
@@ -321,27 +322,30 @@ function ConfiguracoesPage() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {requests.map((item) => (
-                    <div key={item.id} className="rounded-lg border p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">{item.email}</p>
-                          {item.message && <p className="mt-2 text-sm">{item.message}</p>}
+                  {requests.map((item) => {
+                    const actionState = getAccessRequestActionState(item);
+                    return (
+                      <div key={item.id} className="rounded-lg border p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">{item.email}</p>
+                            {item.message && <p className="mt-2 text-sm">{item.message}</p>}
+                          </div>
+                          <div className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {item.status}
+                          </div>
                         </div>
-                        <div className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {item.revokedAt ? "revogado" : item.status}
-                        </div>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {item.status === "pending" && (
-                          <>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {actionState.canApprove && (
                             <Button
                               size="sm"
                               onClick={() => handleRequestDecision(item.id, "approved")}
                             >
                               <Check className="mr-1.5 h-4 w-4" /> Aceitar
                             </Button>
+                          )}
+                          {actionState.canReject && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -349,29 +353,31 @@ function ConfiguracoesPage() {
                             >
                               <X className="mr-1.5 h-4 w-4" /> Recusar
                             </Button>
-                          </>
-                        )}
-                        {item.status === "approved" && !item.revokedAt && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleRevokeAccess(item)}
-                          >
-                            <ShieldOff className="mr-1.5 h-4 w-4" /> Revogar acesso
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteRequest(item)}
-                        >
-                          <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
-                        </Button>
+                          )}
+                          {actionState.canRevoke && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleRevokeAccess(item)}
+                            >
+                              <ShieldOff className="mr-1.5 h-4 w-4" /> Revogar acesso
+                            </Button>
+                          )}
+                          {actionState.canDelete && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteRequest(item)}
+                            >
+                              <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </Card>

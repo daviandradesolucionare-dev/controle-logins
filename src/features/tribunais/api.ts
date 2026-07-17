@@ -115,13 +115,42 @@ export async function createTribunalWithLawyers(input: {
   sigla: string;
   lawyerNames: string[];
 }): Promise<Tribunal> {
-  const { data, error } = await supabase.rpc("create_tribunal_with_lawyers", {
-    p_nome: input.nome,
-    p_sigla: input.sigla,
-    p_lawyer_names: input.lawyerNames,
-  });
-  if (error) throw error;
-  return data as Tribunal;
+  const parsedName = input.nome.trim();
+  const parsedSigla = input.sigla?.trim() ? input.sigla.trim() : null;
+
+  try {
+    const { data, error } = await supabase.rpc("create_tribunal_with_lawyers", {
+      p_nome: parsedName,
+      p_sigla: parsedSigla,
+      p_lawyer_names: input.lawyerNames,
+    });
+    if (error) throw error;
+    return data as Tribunal;
+  } catch (rpcError) {
+    console.warn("RPC failed, falling back to manual creation", rpcError);
+
+    const { data: tribunal, error: tribunalError } = await supabase
+      .from("tabelas_tribunais")
+      .insert({ nome: parsedName, sigla: parsedSigla })
+      .select()
+      .single();
+    if (tribunalError) throw tribunalError;
+
+    const lawyerNames = input.lawyerNames
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+    if (lawyerNames.length > 0) {
+      const { error: lawyerError } = await supabase.from("tabelas_advogados").insert(
+        lawyerNames.map((name) => ({
+          tribunal_id: tribunal.id,
+          nome: name,
+          status: "Não enviado" as StatusAdvogado,
+        })),
+      );
+      if (lawyerError) throw lawyerError;
+    }
+    return tribunal as Tribunal;
+  }
 }
 
 export async function updateAdvogado(id: string, input: { nome: string }): Promise<Advogado> {

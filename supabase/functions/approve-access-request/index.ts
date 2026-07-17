@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-type RequestBody = { requestId?: string; decision?: "approved" | "rejected" };
+type RequestBody = { requestId?: string; decision?: "approved" | "rejected" | "revoke" };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +34,7 @@ Deno.serve(async (request) => {
   if (!role) return new Response("Sem permissão", { status: 403, headers: corsHeaders });
 
   const { requestId, decision } = (await request.json()) as RequestBody;
-  if (!requestId || (decision !== "approved" && decision !== "rejected")) {
+  if (!requestId || (decision !== "approved" && decision !== "rejected" && decision !== "revoke")) {
     return new Response("Dados inválidos", { status: 400, headers: corsHeaders });
   }
 
@@ -43,20 +43,76 @@ Deno.serve(async (request) => {
     .select("id, email, name, status")
     .eq("id", requestId)
     .single();
-  if (requestError || !accessRequest)
+  if (requestError || !accessRequest) {
     return new Response("Solicitação não encontrada", { status: 404, headers: corsHeaders });
+  }
+
+  if (decision === "revoke") {
+    if (accessRequest.status !== "approved") {
+      return new Response("Solicitação não está aprovada", { status: 409, headers: corsHeaders });
+    }
+
+    const { data: usersData, error: listUsersError } = await adminClient.auth.admin.listUsers();
+    if (listUsersError) {
+      return new Response(listUsersError.message, { status: 422, headers: corsHeaders });
+    }
+
+    const matchingUser = usersData?.users.find(
+      (candidate) => candidate.email?.toLowerCase() === accessRequest.email.toLowerCase(),
+    );
+
+    if (matchingUser) {
+      const { error: deleteError } = await adminClient.auth.admin.deleteUser(matchingUser.id);
+      if (deleteError) {
+        return new Response(deleteError.message, { status: 422, headers: corsHeaders });
+      }
+    }
+
+    const { error: updateError } = await adminClient
+      .from("access_requests")
+      .update({
+        status: "revoked",
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", requestId);
+    if (updateError) {
+      return new Response(updateError.message, { status: 500, headers: corsHeaders });
+    }
+
+    return Response.json({ ok: true }, { headers: corsHeaders });
+  }
+
   if (accessRequest.status !== "pending")
     return new Response("Solicitação já processada", { status: 409, headers: corsHeaders });
 
   if (decision === "approved") {
-    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-      accessRequest.email,
-      {
-        data: { full_name: accessRequest.name },
-      },
-    );
-    if (inviteError)
-      return new Response(inviteError.message, { status: 422, headers: corsHeaders });
+    const { data: usersData, error: listUsersError } = await adminClient.auth.admin.listUsers();
+    const existingUser = !listUsersError
+      ? usersData?.users.find(
+          (candidate) => candidate.email?.toLowerCase() === accessRequest.email.toLowerCase(),
+        )
+      : null;
+
+    if (!existingUser) {
+      const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
+        accessRequest.email,
+        {
+          data: { full_name: accessRequest.name },
+        },
+      );
+      if (inviteError) {
+        const inviteMessage = inviteError.message?.toLowerCase() ?? "";
+        const shouldIgnoreInviteError =
+          inviteMessage.includes("already") ||
+          inviteMessage.includes("exist") ||
+          inviteMessage.includes("invited") ||
+          inviteMessage.includes("duplicate");
+        if (!shouldIgnoreInviteError) {
+          return new Response(inviteError.message, { status: 422, headers: corsHeaders });
+        }
+      }
+    }
   }
 
   const { error: updateError } = await adminClient

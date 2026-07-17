@@ -12,9 +12,16 @@ export interface AccessRequest {
   name: string;
   email: string;
   message: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "revoked";
   createdAt: string;
   revokedAt: string | null;
+}
+
+export interface AccessRequestActionState {
+  canApprove: boolean;
+  canReject: boolean;
+  canRevoke: boolean;
+  canDelete: boolean;
 }
 
 type ProfileRow = { id: string; display_name: string; avatar_url: string | null };
@@ -205,8 +212,8 @@ export async function deleteAccessRequest(id: string) {
 }
 
 export async function revokeAccess(requestId: string) {
-  const { data, error } = await supabase.functions.invoke("revoke-user-access", {
-    body: { requestId },
+  const { data, error } = await supabase.functions.invoke("approve-access-request", {
+    body: { requestId, decision: "revoke" },
   });
   if (error) throw new Error(await extractFunctionErrorMessage(error));
   if (!data?.ok) throw new Error("Não foi possível revogar o acesso.");
@@ -232,6 +239,15 @@ async function extractFunctionErrorMessage(error: unknown): Promise<string> {
     }
   }
   return withContext?.message || "Não foi possível processar a solicitação.";
+}
+
+export function getAccessRequestActionState(request: AccessRequest): AccessRequestActionState {
+  return {
+    canApprove: request.status === "pending",
+    canReject: request.status === "pending",
+    canRevoke: request.status === "approved",
+    canDelete: true,
+  };
 }
 
 function toAccessRequest(row: AccessRequestRow): AccessRequest {
