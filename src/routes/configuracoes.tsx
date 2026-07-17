@@ -10,11 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   decideAccessRequest,
-  getProfile,
   listAccessRequests,
   saveProfile,
   type AccessRequest,
 } from "@/lib/profile";
+import { useInvalidateProfile, useProfileQuery } from "@/lib/use-profile-query";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/configuracoes")({
@@ -36,26 +36,29 @@ function ConfiguracoesPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const { data: profileData, error: profileError } = useProfileQuery(user);
+  const invalidateProfile = useInvalidateProfile();
 
   useEffect(() => {
     if (!user) {
       navigate({ to: "/login" });
-      return;
     }
+  }, [navigate, user]);
 
-    getProfile({
-      id: user.id,
-      email: user.email,
-      fallbackName: user.user_metadata?.full_name,
-    })
-      .then((profile) => {
-        setName(profile.name);
-        setEmail(profile.email);
-        setPhotoUrl(profile.photoUrl || user.user_metadata?.avatar_url || null);
-      })
-      .catch((error: Error) => toast.error("Não foi possível carregar o perfil: " + error.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate, user?.id]);
+  useEffect(() => {
+    if (profileError) {
+      toast.error("Não foi possível carregar o perfil: " + (profileError as Error).message);
+    }
+  }, [profileError]);
+
+  // Sincroniza os campos editáveis sempre que o perfil compartilhado mudar
+  // (ex: carregado pela primeira vez, ou atualizado em outra aba/componente).
+  useEffect(() => {
+    if (!profileData || !user) return;
+    setName(profileData.name);
+    setEmail(profileData.email);
+    setPhotoUrl(profileData.photoUrl || user.user_metadata?.avatar_url || null);
+  }, [profileData, user]);
 
   useEffect(() => {
     if (!isAdmin || tab !== "permissoes") return;
@@ -89,6 +92,9 @@ function ConfiguracoesPage() {
         // Persiste imediatamente para que a foto não se perca se o usuário
         // navegar/atualizar a página antes de clicar em "Salvar alterações".
         await saveProfile({ id: user.id, name, photoUrl: data.publicUrl });
+        // Atualiza o cache compartilhado para que o header e outras telas
+        // reflitam a nova foto imediatamente, sem precisar recarregar.
+        await invalidateProfile(user.id);
         toast.success("Foto enviada e salva.");
       })
       .catch((error: Error) => toast.error("Não foi possível enviar a foto: " + error.message));
@@ -108,6 +114,7 @@ function ConfiguracoesPage() {
 
     try {
       await saveProfile({ id: user.id, name, photoUrl });
+      await invalidateProfile(user.id);
     } catch (error) {
       setSaving(false);
       toast.error("Não foi possível salvar o perfil: " + (error as Error).message);
