@@ -8,6 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { CardSearchInput } from "@/features/dashboard/components/CardSearchInput";
 
 export const Route = createFileRoute("/")({
@@ -22,6 +28,7 @@ function Dashboard() {
   const [busca, setBusca] = useState("");
   const [statusEmFoco, setStatusEmFoco] = useState("Todos");
   const [buscaPanorama, setBuscaPanorama] = useState("");
+  const [buscaProgresso, setBuscaProgresso] = useState("");
 
   const dashboardQuery = useQuery<{ tribunais: Tribunal[]; advogados: Advogado[] }>({
     queryKey: ["dashboard", "data"],
@@ -107,7 +114,6 @@ function Dashboard() {
         .sort(
           (a, b) => b.total - a.total || a.tribunal.nome.localeCompare(b.tribunal.nome, "pt-BR"),
         )
-        .slice(0, 8)
         .map(({ tribunal, okCount, total }) => ({
           tribunal: tribunal.nome,
           nomeCurto: tribunal.sigla || tribunal.nome,
@@ -116,6 +122,15 @@ function Dashboard() {
         })),
     [statusTribunais],
   );
+
+  const progressoPorTribunalFiltrado = useMemo(() => {
+    const termo = buscaProgresso.trim().toLowerCase();
+    if (!termo) return progressoPorTribunal;
+    return progressoPorTribunal.filter(
+      (item) =>
+        item.tribunal.toLowerCase().includes(termo) || item.nomeCurto.toLowerCase().includes(termo),
+    );
+  }, [progressoPorTribunal, buscaProgresso]);
 
   const cards = [
     {
@@ -283,17 +298,31 @@ function Dashboard() {
               <CardHeader>
                 <CardTitle>Progresso por tribunal</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Os oito tribunais com mais advogados, separados entre concluídos e pendentes.
+                  Todos os tribunais com advogados, separados entre concluídos e pendentes.
                 </p>
+                <div className="mt-3">
+                  <CardSearchInput
+                    value={buscaProgresso}
+                    onChange={setBuscaProgresso}
+                    placeholder="Buscar tribunal por nome ou sigla..."
+                  />
+                </div>
               </CardHeader>
               <CardContent>
-                {progressoPorTribunal.length === 0 ? (
+                {progressoPorTribunalFiltrado.length === 0 ? (
                   <p className="py-16 text-center text-sm text-muted-foreground">
-                    Ainda não há advogados vinculados a tribunais.
+                    {progressoPorTribunal.length === 0
+                      ? "Ainda não há advogados vinculados a tribunais."
+                      : "Nenhum tribunal encontrado para essa busca."}
                   </p>
                 ) : (
-                  <div className="space-y-4 py-2">
-                    {progressoPorTribunal.map((item) => {
+                  <div
+                    className="max-h-[400px] space-y-4 overflow-y-auto py-2 pr-1"
+                    role="region"
+                    aria-label="Progresso por tribunal"
+                    tabIndex={0}
+                  >
+                    {progressoPorTribunalFiltrado.map((item) => {
                       const okPercent = Math.round((item.ok / (item.ok + item.pendente)) * 100);
                       return (
                         <div
@@ -315,16 +344,18 @@ function Dashboard() {
                         </div>
                       );
                     })}
-                    <div className="flex gap-4 text-xs text-muted-foreground">
-                      <span>
-                        <i className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-500" />
-                        OK
-                      </span>
-                      <span>
-                        <i className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber-500" />
-                        Pendente
-                      </span>
-                    </div>
+                  </div>
+                )}
+                {progressoPorTribunalFiltrado.length > 0 && (
+                  <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
+                    <span>
+                      <i className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-500" />
+                      OK
+                    </span>
+                    <span>
+                      <i className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber-500" />
+                      Pendente
+                    </span>
                   </div>
                 )}
               </CardContent>
@@ -449,13 +480,13 @@ function Dashboard() {
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="ok">
-                  <AdvList advogados={advOk} tribunalById={tribunalById} />
+                  <AdvList advogados={advOk} tribunalById={tribunalById} busca={busca} />
                 </TabsContent>
                 <TabsContent value="aguardando">
-                  <AdvList advogados={advAguard} tribunalById={tribunalById} />
+                  <AdvList advogados={advAguard} tribunalById={tribunalById} busca={busca} />
                 </TabsContent>
                 <TabsContent value="nao">
-                  <AdvList advogados={advNao} tribunalById={tribunalById} />
+                  <AdvList advogados={advNao} tribunalById={tribunalById} busca={busca} />
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -469,9 +500,11 @@ function Dashboard() {
 function AdvList({
   advogados,
   tribunalById,
+  busca,
 }: {
   advogados: Advogado[];
   tribunalById: Map<string, Tribunal>;
+  busca: string;
 }) {
   if (advogados.length === 0) {
     return (
@@ -492,33 +525,44 @@ function AdvList({
     const nb = tribunalById.get(b[0])?.nome ?? "";
     return na.localeCompare(nb, "pt-BR");
   });
+
+  // Com busca ativa, todos os tribunais com resultado ficam abertos por
+  // padrão (senão o usuário busca e não vê nada, porque tudo está
+  // recolhido). Sem busca, tudo começa fechado para reduzir a poluição
+  // visual inicial.
+  const defaultOpen = busca.trim() ? entries.map(([tid]) => tid) : [];
+
   return (
-    <div className="mt-3 space-y-4">
+    <Accordion type="multiple" defaultValue={defaultOpen} className="mt-3 space-y-2">
       {entries.map(([tid, advs]) => {
         const t = tribunalById.get(tid);
         return (
-          <div key={tid}>
-            <div className="mb-1 flex items-center gap-2">
-              <span className="text-sm font-semibold">{t?.nome ?? "—"}</span>
-              {t?.sigla && (
-                <Badge variant="secondary" className="text-xs">
-                  {t.sigla}
-                </Badge>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {advs.length} advogado{advs.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <ul className="flex flex-wrap gap-1.5">
-              {advs.map((a) => (
-                <li key={a.id} className="rounded-md border bg-muted/40 px-2 py-1 text-xs">
-                  {a.nome}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <AccordionItem key={tid} value={tid} className="rounded-lg border px-3">
+            <AccordionTrigger className="py-2.5 hover:no-underline">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">{t?.nome ?? "—"}</span>
+                {t?.sigla && (
+                  <Badge variant="secondary" className="text-xs">
+                    {t.sigla}
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {advs.length} advogado{advs.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <ul className="flex flex-wrap gap-1.5 pb-2">
+                {advs.map((a) => (
+                  <li key={a.id} className="rounded-md border bg-muted/40 px-2 py-1 text-xs">
+                    {a.nome}
+                  </li>
+                ))}
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
         );
       })}
-    </div>
+    </Accordion>
   );
 }
