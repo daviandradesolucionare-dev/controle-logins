@@ -157,7 +157,25 @@ function AuthGate() {
   const { user, loading } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const router = useRouter();
-  const isPublicRoute = pathname === "/login" || pathname === "/solicitar-acesso";
+  const isPublicRoute =
+    pathname === "/login" || pathname === "/solicitar-acesso" || pathname === "/definir-senha";
+
+  // Links de convite/recuperação do Supabase carregam um token no hash da
+  // URL (#access_token=...&type=invite). Esse token já autentica a pessoa
+  // automaticamente (mesmo sem ela ter definido senha), então, se o link
+  // cair em qualquer página que não seja /definir-senha -- por exemplo,
+  // por causa do Site URL do projeto Supabase ainda não estar apontando
+  // para o domínio certo -- a pessoa entraria direto no sistema sem
+  // nunca definir uma senha. Interceptamos isso aqui, no nível mais alto
+  // do app, para funcionar independente dessa configuração externa.
+  useEffect(() => {
+    if (pathname === "/definir-senha") return;
+    const hash = window.location.hash;
+    if (hash.includes("type=invite") || hash.includes("type=recovery")) {
+      router.navigate({ to: "/definir-senha", hash: hash.replace(/^#/, "") });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   // Se sessão for perdida durante a navegação, invalida cache.
   useEffect(() => {

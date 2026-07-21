@@ -49,6 +49,10 @@ import {
   useTribunalMutations,
 } from "@/features/tribunais/hooks";
 import { groupAdvogadosPorTribunal } from "@/features/tribunais/utils";
+import {
+  lerFiltrosTribunais,
+  salvarFiltrosTribunais,
+} from "@/features/tribunais/filter-persistence";
 import type { OrdemServer, StatusFiltro, TribunalComStatus } from "@/features/tribunais/api";
 
 const PAGE_SIZE = 12;
@@ -137,6 +141,40 @@ function TribunaisPage() {
   useEffect(() => setFiltroTribunalInput(search.q), [search.q]);
   useEffect(() => setFiltroAdvogadoInput(search.adv), [search.adv]);
 
+  // Restaura o último filtro usado nesta aba quando a página é aberta sem
+  // nenhum parâmetro na URL (ex: clicou em "Tribunais" no menu). Só roda
+  // uma vez, ao montar -- se a URL já veio com parâmetros (ex: link
+  // compartilhado, ou "voltar" do navegador), respeitamos o que está lá.
+  useEffect(() => {
+    const urlEstaLimpa = !rawSearch.q && !rawSearch.adv && !rawSearch.status && !rawSearch.ordem;
+    if (!urlEstaLimpa) return;
+    const salvos = lerFiltrosTribunais();
+    if (!salvos) return;
+    if (!salvos.q && !salvos.adv && salvos.status === "todos" && salvos.ordem === "az") return;
+    setFiltroTribunalInput(salvos.q);
+    setFiltroAdvogadoInput(salvos.adv);
+    setSearch(
+      {
+        q: salvos.q,
+        adv: salvos.adv,
+        status: toStatus(salvos.status),
+        ordem: toOrdem(salvos.ordem),
+      },
+      false,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mantém o último filtro salvo para a próxima vez que a aba for aberta.
+  useEffect(() => {
+    salvarFiltrosTribunais({
+      q: search.q,
+      adv: search.adv,
+      status: search.status,
+      ordem: search.ordem,
+    });
+  }, [search.q, search.adv, search.status, search.ordem]);
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const [tribunalParaExcluir, setTribunalParaExcluir] = useState<Tribunal | null>(null);
@@ -184,7 +222,8 @@ function TribunaisPage() {
   const limparFiltros = () => {
     setFiltroTribunalInput("");
     setFiltroAdvogadoInput("");
-    setSearch({ q: "", adv: "" });
+    setSearch({ q: "", adv: "", status: "todos", ordem: "az" });
+    salvarFiltrosTribunais({ q: "", adv: "", status: "todos", ordem: "az" });
   };
 
   const toggleExpand = (id: string) => {
