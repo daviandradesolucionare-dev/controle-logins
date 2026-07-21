@@ -113,6 +113,15 @@ Deno.serve(async (request) => {
           inviteMessage.includes("exist") ||
           inviteMessage.includes("invited") ||
           inviteMessage.includes("duplicate");
+        if (inviteMessage.includes("rate limit")) {
+          return new Response(
+            "Limite de e-mails do Supabase atingido (poucos convites por hora no plano " +
+              "gratuito). Aguarde um pouco e tente novamente, ou configure um provedor de " +
+              "SMTP próprio em Authentication → Settings → SMTP Settings para remover esse " +
+              "limite. A solicitação continua pendente, nada foi perdido.",
+            { status: 429, headers: corsHeaders },
+          );
+        }
         if (!shouldIgnoreInviteError) {
           return new Response(inviteError.message, { status: 422, headers: corsHeaders });
         }
