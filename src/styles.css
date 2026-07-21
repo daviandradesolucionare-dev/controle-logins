@@ -142,3 +142,19 @@
     color: var(--color-foreground);
   }
 }
+
+/* Transição suave ao trocar tema claro/escuro. A classe é aplicada só
+   durante a troca (ver src/lib/theme.ts) para não sobrescrever outras
+   transições (hover, focus, etc.) o resto do tempo. Respeita a
+   preferência de "reduzir movimento" do usuário. */
+@media (prefers-reduced-motion: no-preference) {
+  .theme-transitioning,
+  .theme-transitioning * {
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease,
+      fill 0.3s ease,
+      stroke 0.3s ease !important;
+  }
+}

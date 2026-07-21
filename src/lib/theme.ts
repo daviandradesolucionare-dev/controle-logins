@@ -14,6 +14,20 @@ function applyTheme(theme: Theme) {
   else root.classList.remove("dark");
 }
 
+// A transição de cores só fica ativa durante a troca de tema (classe
+// temporária), para não sobrescrever permanentemente as transições
+// normais de hover/focus de outros elementos da interface.
+function withThemeTransition(applyChange: () => void) {
+  if (typeof document === "undefined") {
+    applyChange();
+    return;
+  }
+  const root = document.documentElement;
+  root.classList.add("theme-transitioning");
+  applyChange();
+  window.setTimeout(() => root.classList.remove("theme-transitioning"), 300);
+}
+
 // Tema não é persistido em localStorage — segue preferência do sistema ao carregar.
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>("light");
@@ -27,7 +41,7 @@ export function useTheme() {
   const toggle = () => {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
-      applyTheme(next);
+      withThemeTransition(() => applyTheme(next));
       return next;
     });
   };
