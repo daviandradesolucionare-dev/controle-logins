@@ -65,6 +65,8 @@ const searchSchema = z.object({
   status: fallback(z.string(), "todos").default("todos"),
   ordem: fallback(z.string(), "az").default("az"),
   offset: fallback(z.number().int(), 0).default(0),
+  de: fallback(z.string(), "").default(""),
+  ate: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/tribunais")({
@@ -93,6 +95,43 @@ function toOrdem(v: string): OrdemServer {
   return (ORDENS as string[]).includes(v) ? (v as OrdemServer) : "az";
 }
 
+function formatDateInput(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+const PERIODOS_RAPIDOS: { label: string; calcular: () => { de: string; ate: string } }[] = [
+  {
+    label: "Últimos 7 dias",
+    calcular: () => {
+      const hoje = new Date();
+      const inicio = new Date();
+      inicio.setDate(hoje.getDate() - 6);
+      return { de: formatDateInput(inicio), ate: formatDateInput(hoje) };
+    },
+  },
+  {
+    label: "Últimos 30 dias",
+    calcular: () => {
+      const hoje = new Date();
+      const inicio = new Date();
+      inicio.setDate(hoje.getDate() - 29);
+      return { de: formatDateInput(inicio), ate: formatDateInput(hoje) };
+    },
+  },
+  {
+    label: "Este mês",
+    calcular: () => {
+      const hoje = new Date();
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      return { de: formatDateInput(inicio), ate: formatDateInput(hoje) };
+    },
+  },
+  {
+    label: "Todo o período",
+    calcular: () => ({ de: "", ate: "" }),
+  },
+];
+
 function TribunaisPage() {
   const rawSearch = Route.useSearch();
   const search = {
@@ -101,6 +140,8 @@ function TribunaisPage() {
     status: toStatus(rawSearch.status ?? "todos"),
     ordem: toOrdem(rawSearch.ordem ?? "az"),
     offset: Math.max(0, rawSearch.offset ?? 0),
+    de: rawSearch.de ?? "",
+    ate: rawSearch.ate ?? "",
   };
   const navigate = useNavigate({ from: "/tribunais" });
 
@@ -121,6 +162,8 @@ function TribunaisPage() {
     ordem: search.ordem,
     offset: search.offset,
     limit: PAGE_SIZE,
+    dataInicio: search.de || undefined,
+    dataFim: search.ate || undefined,
   });
   const rows = pageQuery.data?.rows ?? EMPTY_TRIBUNAIS;
   const total = pageQuery.data?.total ?? 0;
@@ -146,11 +189,25 @@ function TribunaisPage() {
   // uma vez, ao montar -- se a URL já veio com parâmetros (ex: link
   // compartilhado, ou "voltar" do navegador), respeitamos o que está lá.
   useEffect(() => {
-    const urlEstaLimpa = !rawSearch.q && !rawSearch.adv && !rawSearch.status && !rawSearch.ordem;
+    const urlEstaLimpa =
+      !rawSearch.q &&
+      !rawSearch.adv &&
+      !rawSearch.de &&
+      !rawSearch.ate &&
+      (rawSearch.status ?? "todos") === "todos" &&
+      (rawSearch.ordem ?? "az") === "az";
     if (!urlEstaLimpa) return;
     const salvos = lerFiltrosTribunais();
     if (!salvos) return;
-    if (!salvos.q && !salvos.adv && salvos.status === "todos" && salvos.ordem === "az") return;
+    if (
+      !salvos.q &&
+      !salvos.adv &&
+      !salvos.de &&
+      !salvos.ate &&
+      salvos.status === "todos" &&
+      salvos.ordem === "az"
+    )
+      return;
     setFiltroTribunalInput(salvos.q);
     setFiltroAdvogadoInput(salvos.adv);
     setSearch(
@@ -159,6 +216,8 @@ function TribunaisPage() {
         adv: salvos.adv,
         status: toStatus(salvos.status),
         ordem: toOrdem(salvos.ordem),
+        de: salvos.de,
+        ate: salvos.ate,
       },
       false,
     );
@@ -172,8 +231,10 @@ function TribunaisPage() {
       adv: search.adv,
       status: search.status,
       ordem: search.ordem,
+      de: search.de,
+      ate: search.ate,
     });
-  }, [search.q, search.adv, search.status, search.ordem]);
+  }, [search.q, search.adv, search.status, search.ordem, search.de, search.ate]);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -222,8 +283,8 @@ function TribunaisPage() {
   const limparFiltros = () => {
     setFiltroTribunalInput("");
     setFiltroAdvogadoInput("");
-    setSearch({ q: "", adv: "", status: "todos", ordem: "az" });
-    salvarFiltrosTribunais({ q: "", adv: "", status: "todos", ordem: "az" });
+    setSearch({ q: "", adv: "", status: "todos", ordem: "az", de: "", ate: "" });
+    salvarFiltrosTribunais({ q: "", adv: "", status: "todos", ordem: "az", de: "", ate: "" });
   };
 
   const toggleExpand = (id: string) => {
@@ -344,6 +405,41 @@ function TribunaisPage() {
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Cadastrado de
+            </label>
+            <Input
+              type="date"
+              value={search.de}
+              max={search.ate || undefined}
+              onChange={(e) => setSearch({ de: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Cadastrado até
+            </label>
+            <Input
+              type="date"
+              value={search.ate}
+              min={search.de || undefined}
+              onChange={(e) => setSearch({ ate: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {PERIODOS_RAPIDOS.map((periodo) => (
+            <Button
+              key={periodo.label}
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSearch(periodo.calcular())}
+            >
+              {periodo.label}
+            </Button>
+          ))}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={aplicarFiltros}>

@@ -16,6 +16,9 @@ export interface TribunaisPageParams {
   ordem: OrdemServer;
   offset: number;
   limit: number;
+  /** Data de cadastro do tribunal (created_at), formato YYYY-MM-DD, inclusive. */
+  dataInicio?: string;
+  dataFim?: string;
 }
 
 export interface TribunaisPageResult {
@@ -47,6 +50,8 @@ export async function fetchTribunaisPage(p: TribunaisPageParams): Promise<Tribun
   }
   if (p.status !== "todos") query = query.eq("status", p.status);
   if (advTribunalIds) query = query.in("id", advTribunalIds);
+  if (p.dataInicio) query = query.gte("created_at", `${p.dataInicio}T00:00:00`);
+  if (p.dataFim) query = query.lte("created_at", `${p.dataFim}T23:59:59.999`);
 
   if (p.ordem === "az") query = query.order("nome", { ascending: true });
   else if (p.ordem === "za") query = query.order("nome", { ascending: false });

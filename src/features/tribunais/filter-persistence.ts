@@ -5,6 +5,8 @@ export interface TribunaisFiltrosPersistidos {
   adv: string;
   status: string;
   ordem: string;
+  de: string;
+  ate: string;
 }
 
 /**
@@ -31,7 +33,9 @@ export function lerFiltrosTribunais(): TribunaisFiltrosPersistidos | null {
       typeof parsed?.q === "string" &&
       typeof parsed?.adv === "string" &&
       typeof parsed?.status === "string" &&
-      typeof parsed?.ordem === "string"
+      typeof parsed?.ordem === "string" &&
+      typeof parsed?.de === "string" &&
+      typeof parsed?.ate === "string"
     ) {
       return parsed;
     }
