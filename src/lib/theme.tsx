@@ -14,20 +14,6 @@ function applyTheme(theme: Theme) {
   else root.classList.remove("dark");
 }
 
-// A transição de cores só fica ativa durante a troca de tema (classe
-// temporária), para não sobrescrever permanentemente as transições
-// normais de hover/focus de outros elementos da interface.
-function withThemeTransition(applyChange: () => void) {
-  if (typeof document === "undefined") {
-    applyChange();
-    return;
-  }
-  const root = document.documentElement;
-  root.classList.add("theme-transitioning");
-  applyChange();
-  window.setTimeout(() => root.classList.remove("theme-transitioning"), 220);
-}
-
 interface ThemeContextValue {
   theme: Theme;
   toggle: () => void;
@@ -48,6 +34,11 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
  * Com o Provider único, toda troca de tema propaga para todos os
  * consumidores de useTheme() no mesmo ciclo de render do React — sem
  * polling, sem MutationObserver, sem atraso.
+ *
+ * A troca em si (applyTheme) é instantânea e não usa nenhuma transição
+ * CSS forçada — a interface muda de cor em 0ms. Os únicos elementos que
+ * suavizam são os botões, porque já têm "transition-colors" do Tailwind
+ * aplicada permanentemente (não é algo especial para o tema).
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
@@ -61,7 +52,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const toggle = () => {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
-      withThemeTransition(() => applyTheme(next));
+      applyTheme(next);
       return next;
     });
   };
