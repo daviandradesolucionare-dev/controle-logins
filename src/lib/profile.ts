@@ -24,6 +24,22 @@ export interface AccessRequestActionState {
   canDelete: boolean;
 }
 
+export interface SystemUser {
+  userId: string;
+  email: string;
+  fullName: string;
+  isAdmin: boolean;
+  createdAt: string;
+}
+
+type SystemUserRow = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  is_admin: boolean;
+  created_at: string;
+};
+
 type ProfileRow = { id: string; display_name: string; avatar_url: string | null };
 type AccessRequestRow = {
   id: string;
@@ -255,6 +271,31 @@ async function extractFunctionErrorMessage(error: unknown): Promise<string> {
     }
   }
   return withContext?.message || "Não foi possível processar a solicitação.";
+}
+
+/**
+ * Lista os usuários que já entraram no sistema (acesso aprovado), com seus
+ * cargos atuais. Restrito a administradores — a RPC no banco também valida
+ * isso, então não há dependência apenas da checagem no front-end.
+ */
+export async function listSystemUsers(): Promise<SystemUser[]> {
+  const { data, error } = await supabase.rpc("list_users_with_roles");
+  if (error) throw error;
+  return ((data ?? []) as SystemUserRow[]).map((row) => ({
+    userId: row.user_id,
+    email: row.email,
+    fullName: row.full_name,
+    isAdmin: row.is_admin,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function setUserAdminRole(userId: string, makeAdmin: boolean) {
+  const { data, error } = await supabase.functions.invoke("manage-user-role", {
+    body: { userId, action: makeAdmin ? "promote" : "demote" },
+  });
+  if (error) throw new Error(await extractFunctionErrorMessage(error));
+  if (!data?.ok) throw new Error("Não foi possível atualizar a permissão do usuário.");
 }
 
 export function getAccessRequestActionState(request: AccessRequest): AccessRequestActionState {

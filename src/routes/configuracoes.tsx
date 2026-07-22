@@ -5,6 +5,7 @@ import {
   Lock,
   ShieldCheck,
   ShieldOff,
+  ShieldPlus,
   UserCircle2,
   Upload,
   Check,
@@ -23,9 +24,12 @@ import {
   deleteAccessRequest,
   getAccessRequestActionState,
   listAccessRequests,
+  listSystemUsers,
   revokeAccess,
   saveProfile,
+  setUserAdminRole,
   type AccessRequest,
+  type SystemUser,
 } from "@/lib/profile";
 import { useInvalidateProfile, useProfileQuery } from "@/lib/use-profile-query";
 import { supabase } from "@/lib/supabase";
@@ -49,6 +53,8 @@ function ConfiguracoesPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
+  const [roleChangeUserId, setRoleChangeUserId] = useState<string | null>(null);
   const { data: profileData, error: profileError } = useProfileQuery(user);
   const invalidateProfile = useInvalidateProfile();
 
@@ -80,6 +86,9 @@ function ConfiguracoesPage() {
       .catch((error: Error) =>
         toast.error("Não foi possível carregar solicitações: " + error.message),
       );
+    listSystemUsers()
+      .then(setSystemUsers)
+      .catch((error: Error) => toast.error("Não foi possível carregar usuários: " + error.message));
   }, [isAdmin, tab]);
 
   const handlePhotoUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -202,6 +211,27 @@ function ConfiguracoesPage() {
       toast.success("Acesso revogado.");
     } catch (error) {
       toast.error("Não foi possível revogar: " + (error as Error).message);
+    }
+  };
+
+  const handleToggleAdmin = async (target: SystemUser) => {
+    const nextIsAdmin = !target.isAdmin;
+    const confirmMessage = nextIsAdmin
+      ? `Tornar ${target.fullName || target.email} um administrador? A pessoa poderá aprovar, recusar e revogar acessos, além de promover outros usuários.`
+      : `Remover a permissão de administrador de ${target.fullName || target.email}?`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setRoleChangeUserId(target.userId);
+    try {
+      await setUserAdminRole(target.userId, nextIsAdmin);
+      setSystemUsers(await listSystemUsers());
+      toast.success(
+        nextIsAdmin ? "Usuário promovido a administrador." : "Permissão de administrador removida.",
+      );
+    } catch (error) {
+      toast.error("Não foi possível atualizar a permissão: " + (error as Error).message);
+    } finally {
+      setRoleChangeUserId(null);
     }
   };
 
@@ -374,6 +404,69 @@ function ConfiguracoesPage() {
                               <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
                             </Button>
                           )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+            <Card className="mt-4 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <ShieldPlus className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Usuários e administradores</h2>
+              </div>
+
+              {systemUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum usuário com acesso aprovado no momento.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {systemUsers.map((sysUser) => {
+                    const isSelf = sysUser.userId === user?.id;
+                    const isChanging = roleChangeUserId === sysUser.userId;
+                    return (
+                      <div
+                        key={sysUser.userId}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {sysUser.fullName || sysUser.email}
+                            {isSelf && (
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                (você)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{sysUser.email}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {sysUser.isAdmin && (
+                            <span className="rounded-full border bg-primary/10 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-primary">
+                              Admin
+                            </span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isSelf || isChanging}
+                            className={
+                              sysUser.isAdmin ? "text-destructive hover:text-destructive" : ""
+                            }
+                            onClick={() => handleToggleAdmin(sysUser)}
+                          >
+                            {isChanging ? (
+                              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                            ) : sysUser.isAdmin ? (
+                              <ShieldOff className="mr-1.5 h-4 w-4" />
+                            ) : (
+                              <ShieldPlus className="mr-1.5 h-4 w-4" />
+                            )}
+                            {sysUser.isAdmin ? "Remover admin" : "Tornar admin"}
+                          </Button>
                         </div>
                       </div>
                     );

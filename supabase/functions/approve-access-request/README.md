@@ -20,3 +20,15 @@ código novo já no repositório — foi exatamente isso que causou o erro
 "Dados inválidos" ao tentar revogar acesso: o front-end já enviava
 `decision: "revoke"`, mas a função implantada ainda era uma versão anterior
 que não reconhecia esse valor.
+
+## Outras funções deste projeto
+
+- `manage-user-role` (promover/remover administrador) — também requer deploy
+  manual. Ver `supabase/functions/manage-user-role/index.ts`.
+
+Ao alterar qualquer Edge Function, lembre de reimplantar **todas** as que
+mudaram, com o mesmo comando trocando o nome:
+
+```bash
+supabase functions deploy manage-user-role --project-ref <PROJECT_REF>
+```
