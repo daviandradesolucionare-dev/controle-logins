@@ -35,15 +35,15 @@ function AdvogadosPadrao() {
       .catch((error: Error) => toast.error("Não foi possível carregar a lista: " + error.message));
   }, []);
 
-  const persist = async (next: string[]) => {
+  const persist = async (next: string[], successMessage: string) => {
+    const previous = list;
     setList(next);
     try {
       await saveDefaultLawyers(next);
+      toast.success(successMessage);
     } catch (error) {
+      setList(previous);
       toast.error("Não foi possível salvar a lista: " + (error as Error).message);
-      getDefaultLawyers()
-        .then(setList)
-        .catch(() => undefined);
       throw error;
     }
   };
@@ -58,15 +58,16 @@ function AdvogadosPadrao() {
       toast.error("Este advogado já existe na lista.");
       return;
     }
-    void persist([...list, n]);
+    void persist([...list, n], "Advogado adicionado à lista padrão.");
     setNovo("");
-    toast.success("Advogado adicionado à lista padrão.");
   };
 
   const excluir = (idx: number) => {
     const nome = list[idx];
-    void persist(list.filter((_, i) => i !== idx));
-    toast.success(`"${nome}" removido da lista padrão.`);
+    void persist(
+      list.filter((_, i) => i !== idx),
+      `"${nome}" removido da lista padrão.`,
+    );
   };
 
   const startEdit = (idx: number) => {
@@ -83,10 +84,9 @@ function AdvogadosPadrao() {
     }
     const next = [...list];
     next[editIdx] = v;
-    void persist(next);
+    void persist(next, "Nome atualizado.");
     setEditIdx(null);
     setEditValue("");
-    toast.success("Nome atualizado.");
   };
 
   const resetar = async () => {

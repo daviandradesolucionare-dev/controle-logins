@@ -180,6 +180,21 @@ export async function createTribunalWithLawyers(input: {
   return tribunal as Tribunal;
 }
 
+export interface AddLawyerToAllResult {
+  affected: number;
+  alreadyHad: number;
+}
+
+export async function addLawyerToAllTribunais(nome: string): Promise<AddLawyerToAllResult> {
+  const { data, error } = await supabase.rpc("add_lawyer_to_all_tribunais", { p_nome: nome });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    affected: row?.tribunais_afetados ?? 0,
+    alreadyHad: row?.tribunais_ja_tinha ?? 0,
+  };
+}
+
 export async function updateAdvogado(id: string, input: { nome: string }): Promise<Advogado> {
   const { data, error } = await supabase
     .from("tabelas_advogados")

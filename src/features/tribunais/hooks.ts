@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { toast } from "sonner";
 import type { Advogado, StatusAdvogado, Tribunal } from "@/lib/supabase";
 import {
+  addLawyerToAllTribunais,
   createAdvogado,
   deleteAdvogado,
   deleteTribunal,
@@ -133,5 +134,31 @@ export function useTribunalMutations() {
     onError: (err) => toast.error("Erro ao salvar: " + (err as Error).message),
   });
 
-  return { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado, saveAdvogado };
+  const addAdvogadoATodos = useMutation({
+    mutationFn: addLawyerToAllTribunais,
+    onSuccess: ({ affected, alreadyHad }) => {
+      qc.invalidateQueries({ queryKey: advogadosKey });
+      qc.invalidateQueries({ queryKey: tribunaisKey });
+      if (affected === 0 && alreadyHad > 0) {
+        toast.info("Esse advogado já estava presente em todos os tribunais.");
+        return;
+      }
+      const partes = [`Adicionado em ${affected} tribunal${affected === 1 ? "" : "is"}`];
+      if (alreadyHad > 0) {
+        partes.push(`já estava presente em ${alreadyHad}`);
+      }
+      toast.success(partes.join(" — ") + ".");
+    },
+    onError: (err) => toast.error("Erro ao adicionar em massa: " + (err as Error).message),
+  });
+
+  return {
+    setStatus,
+    removeTribunal,
+    removeAdvogado,
+    saveTribunal,
+    addAdvogado,
+    saveAdvogado,
+    addAdvogadoATodos,
+  };
 }

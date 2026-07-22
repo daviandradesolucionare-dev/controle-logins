@@ -13,6 +13,7 @@ import {
   ArrowDownAZ,
   ChevronLeft,
   ChevronRight,
+  UserPlus,
 } from "lucide-react";
 import { STATUS_OPTIONS, type Advogado, type StatusAdvogado, type Tribunal } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -174,8 +175,15 @@ function TribunaisPage() {
   const advogados = advogadosQuery.data ?? EMPTY_ADVOGADOS;
   const advByTribunal = useMemo(() => groupAdvogadosPorTribunal(advogados), [advogados]);
 
-  const { setStatus, removeTribunal, removeAdvogado, saveTribunal, addAdvogado, saveAdvogado } =
-    useTribunalMutations();
+  const {
+    setStatus,
+    removeTribunal,
+    removeAdvogado,
+    saveTribunal,
+    addAdvogado,
+    saveAdvogado,
+    addAdvogadoATodos,
+  } = useTribunalMutations();
 
   // Inputs locais com debounce para não requisitar a cada tecla
   const [filtroTribunalInput, setFiltroTribunalInput] = useState(search.q);
@@ -245,6 +253,9 @@ function TribunaisPage() {
   const [addAdvTribunal, setAddAdvTribunal] = useState<Tribunal | null>(null);
   const [addAdvNome, setAddAdvNome] = useState("");
   const [addAdvStatus, setAddAdvStatus] = useState<StatusAdvogado>("");
+
+  const [addAdvTodosOpen, setAddAdvTodosOpen] = useState(false);
+  const [addAdvTodosNome, setAddAdvTodosNome] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
   const [editTribunal, setEditTribunal] = useState<Tribunal | null>(null);
@@ -340,6 +351,14 @@ function TribunaisPage() {
     setAddAdvOpen(false);
   };
 
+  const submitAddAdvogadoATodos = async () => {
+    const nome = addAdvTodosNome.trim();
+    if (!nome) return;
+    await addAdvogadoATodos.mutateAsync(nome);
+    setAddAdvTodosNome("");
+    setAddAdvTodosOpen(false);
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -349,6 +368,10 @@ function TribunaisPage() {
             {total} tribunal{total !== 1 ? "is" : ""} encontrados
           </p>
         </div>
+        <Button variant="outline" onClick={() => setAddAdvTodosOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Adicionar advogado a todos os tribunais
+        </Button>
       </div>
 
       <Card className="mb-6 p-4">
@@ -626,6 +649,43 @@ function TribunaisPage() {
             <Button onClick={submitAddAdvogado} disabled={addAdvogado.isPending}>
               {addAdvogado.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal adicionar advogado em todos os tribunais */}
+      <Dialog open={addAdvTodosOpen} onOpenChange={setAddAdvTodosOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar advogado a todos os tribunais</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nome</label>
+              <Input
+                value={addAdvTodosNome}
+                onChange={(e) => setAddAdvTodosNome(e.target.value)}
+                placeholder="Nome do advogado"
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && submitAddAdvogadoATodos()}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O advogado será incluído com status "Não enviado" em todos os tribunais que ainda não
+              o possuem. Tribunais onde ele já existe são ignorados.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddAdvTodosOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={submitAddAdvogadoATodos}
+              disabled={addAdvogadoATodos.isPending || !addAdvTodosNome.trim()}
+            >
+              {addAdvogadoATodos.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Adicionar a todos
             </Button>
           </DialogFooter>
         </DialogContent>

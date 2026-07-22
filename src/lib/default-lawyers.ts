@@ -33,71 +33,31 @@ export const INITIAL_DEFAULT_LAWYERS = [
   "JULIA SILVA DO CARMO",
 ];
 
+/**
+ * A lista de advogados padrão é persistida exclusivamente no banco
+ * (tabela public.default_lawyers via RPC replace_default_lawyers).
+ * Propositalmente NÃO há fallback para localStorage/sessionStorage aqui:
+ * um fallback local mascarava silenciosamente problemas de schema/migration
+ * não aplicada, dando a falsa impressão de que o advogado foi salvo quando
+ * na verdade sumia ao atualizar a página. Se a tabela/RPC não existir no
+ * banco, o erro deve aparecer para o usuário para ser corrigido de fato.
+ */
 export async function getDefaultLawyers(): Promise<string[]> {
   const { data, error } = await supabase
     .from("default_lawyers")
     .select("name,position")
     .order("position");
-  if (error) {
-    if (isMissingRemoteTable(error)) {
-      const fallback = getFallbackLawyers();
-      if (fallback.length === 0) {
-        saveFallbackLawyers(INITIAL_DEFAULT_LAWYERS);
-        return [...INITIAL_DEFAULT_LAWYERS];
-      }
-      return fallback;
-    }
-    throw error;
-  }
+  if (error) throw error;
   const names = (data as DefaultLawyerRow[]).map((item) => item.name);
-  if (names.length === 0) {
-    saveFallbackLawyers(INITIAL_DEFAULT_LAWYERS);
-    return [...INITIAL_DEFAULT_LAWYERS];
-  }
   return names;
 }
 
 export async function saveDefaultLawyers(list: string[]) {
   const { error } = await supabase.rpc("replace_default_lawyers", { p_names: list });
-  if (error) {
-    if (isMissingRemoteTable(error)) {
-      saveFallbackLawyers(list);
-      return;
-    }
-    throw error;
-  }
+  if (error) throw error;
 }
 
 export async function resetDefaultLawyers() {
   await saveDefaultLawyers(INITIAL_DEFAULT_LAWYERS);
   return INITIAL_DEFAULT_LAWYERS;
-}
-
-const FALLBACK_STORAGE_KEY = "default-lawyers-fallback-v2";
-
-function isMissingRemoteTable(error: { code?: string; message?: string }) {
-  return (
-    error.code === "42P01" ||
-    error.code === "PGRST202" ||
-    error.message?.includes("default_lawyers") === true ||
-    error.message?.includes("replace_default_lawyers") === true
-  );
-}
-
-function getFallbackLawyers() {
-  if (typeof window === "undefined") return [...INITIAL_DEFAULT_LAWYERS];
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(FALLBACK_STORAGE_KEY) ?? "null");
-    return Array.isArray(saved) && saved.every((name) => typeof name === "string")
-      ? saved
-      : [...INITIAL_DEFAULT_LAWYERS];
-  } catch {
-    return [...INITIAL_DEFAULT_LAWYERS];
-  }
-}
-
-function saveFallbackLawyers(list: string[]) {
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify(list));
-  }
 }
