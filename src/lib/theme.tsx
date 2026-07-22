@@ -25,7 +25,7 @@ function withThemeTransition(applyChange: () => void) {
   const root = document.documentElement;
   root.classList.add("theme-transitioning");
   applyChange();
-  window.setTimeout(() => root.classList.remove("theme-transitioning"), 300);
+  window.setTimeout(() => root.classList.remove("theme-transitioning"), 220);
 }
 
 interface ThemeContextValue {

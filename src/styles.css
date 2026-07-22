@@ -144,17 +144,24 @@
 }
 
 /* Transição suave ao trocar tema claro/escuro. A classe é aplicada só
-   durante a troca (ver src/lib/theme.ts) para não sobrescrever outras
+   durante a troca (ver src/lib/theme.tsx) para não sobrescrever outras
    transições (hover, focus, etc.) o resto do tempo. Respeita a
-   preferência de "reduzir movimento" do usuário. */
+   preferência de "reduzir movimento" do usuário.
+
+   Inclui box-shadow e outline-color além das cores básicas: sem elas, o
+   anel de foco (ring) e as sombras dos componentes shadcn/ui trocavam de
+   cor instantaneamente enquanto o resto da interface suavizava, dando a
+   sensação de bordas "agarrando"/dessincronizadas durante a transição. */
 @media (prefers-reduced-motion: no-preference) {
   .theme-transitioning,
   .theme-transitioning * {
     transition:
-      background-color 0.3s ease,
-      border-color 0.3s ease,
-      color 0.3s ease,
-      fill 0.3s ease,
-      stroke 0.3s ease !important;
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease,
+      fill 0.2s ease,
+      stroke 0.2s ease,
+      box-shadow 0.2s ease,
+      outline-color 0.2s ease !important;
   }
 }
