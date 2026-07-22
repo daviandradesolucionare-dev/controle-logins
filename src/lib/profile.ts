@@ -215,7 +215,23 @@ export async function revokeAccess(requestId: string) {
   const { data, error } = await supabase.functions.invoke("approve-access-request", {
     body: { requestId, decision: "revoke" },
   });
-  if (error) throw new Error(await extractFunctionErrorMessage(error));
+  if (error) {
+    const message = await extractFunctionErrorMessage(error);
+    // A Edge Function implantada pode estar desatualizada em relação ao
+    // código-fonte (o deploy de Edge Functions não é automático neste
+    // projeto — ver .github/workflows/ci.yml). Quando isso acontece, a
+    // função antiga rejeita decision:"revoke" com "Dados inválidos",
+    // o que confunde o usuário. Detectamos esse caso específico e damos
+    // uma orientação acionável em vez do erro genérico.
+    if (message.trim().toLowerCase() === "dados inválidos") {
+      throw new Error(
+        "A função no servidor ainda não suporta revogação de acesso. É preciso reimplantar " +
+          "a Edge Function 'approve-access-request' (supabase functions deploy approve-access-request) " +
+          "para aplicar a versão mais recente.",
+      );
+    }
+    throw new Error(message);
+  }
   if (!data?.ok) throw new Error("Não foi possível revogar o acesso.");
 }
 
