@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { CardSearchInput } from "@/features/dashboard/components/CardSearchInput";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusDonutChart } from "@/features/dashboard/components/StatusDonutChart";
 import { TribunalHeatmap } from "@/features/dashboard/components/TribunalHeatmap";
 
@@ -364,54 +365,51 @@ function Dashboard() {
                     : "Nenhum tribunal encontrado para essa busca."}
                 </p>
               ) : (
-                <ul
-                  className="max-h-[480px] divide-y overflow-y-auto"
-                  role="region"
-                  aria-label="Lista de tribunais"
-                  tabIndex={0}
-                >
-                  {statusTribunaisFiltrados.map(({ tribunal, okCount, total, status }) => (
-                    <li
-                      key={tribunal.id}
-                      className="flex flex-wrap items-center justify-between gap-2 py-2"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{tribunal.nome}</span>
-                        {tribunal.sigla && (
-                          <Badge variant="secondary" className="text-xs">
-                            {tribunal.sigla}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {okCount}/{total} OK
-                        </span>
-                        {status === "Concluído" && (
-                          <Badge
-                            className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                            variant="outline"
-                          >
-                            <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
-                          </Badge>
-                        )}
-                        {status === "Pendente" && (
-                          <Badge
-                            className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                            variant="outline"
-                          >
-                            <Clock className="mr-1 h-3 w-3" /> Pendente
-                          </Badge>
-                        )}
-                        {status === "Vazio" && (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            Sem advogados
-                          </Badge>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <ScrollArea className="h-[480px] pr-3" aria-label="Lista de tribunais">
+                  <ul className="divide-y" role="region" tabIndex={0}>
+                    {statusTribunaisFiltrados.map(({ tribunal, okCount, total, status }) => (
+                      <li
+                        key={tribunal.id}
+                        className="flex flex-wrap items-center justify-between gap-2 py-2"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{tribunal.nome}</span>
+                          {tribunal.sigla && (
+                            <Badge variant="secondary" className="text-xs">
+                              {tribunal.sigla}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {okCount}/{total} OK
+                          </span>
+                          {status === "Concluído" && (
+                            <Badge
+                              className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              variant="outline"
+                            >
+                              <CheckCircle2 className="mr-1 h-3 w-3" /> Concluído
+                            </Badge>
+                          )}
+                          {status === "Pendente" && (
+                            <Badge
+                              className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                              variant="outline"
+                            >
+                              <Clock className="mr-1 h-3 w-3" /> Pendente
+                            </Badge>
+                          )}
+                          {status === "Vazio" && (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Sem advogados
+                            </Badge>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>
