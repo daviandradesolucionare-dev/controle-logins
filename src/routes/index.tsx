@@ -297,19 +297,14 @@ function Dashboard() {
                       : "Nenhum tribunal encontrado para essa busca."}
                   </p>
                 ) : (
-                  <div
-                    className="max-h-[400px] overflow-y-auto py-2 pr-1"
-                    role="region"
-                    aria-label="Progresso por tribunal"
-                    tabIndex={0}
-                  >
+                  <ScrollArea className="h-[400px] pr-3" aria-label="Progresso por tribunal">
                     <TribunalHeatmap
                       data={progressoPorTribunalFiltrado}
                       onCellClick={(item) =>
                         navigate({ to: "/tribunais", search: { q: item.tribunal } })
                       }
                     />
-                  </div>
+                  </ScrollArea>
                 )}
                 {progressoPorTribunalFiltrado.length > 0 && (
                   <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
@@ -497,36 +492,38 @@ function AdvList({
   const defaultOpen = busca.trim() ? entries.map(([tid]) => tid) : [];
 
   return (
-    <Accordion type="multiple" defaultValue={defaultOpen} className="mt-3 space-y-2">
-      {entries.map(([tid, advs]) => {
-        const t = tribunalById.get(tid);
-        return (
-          <AccordionItem key={tid} value={tid} className="rounded-lg border px-3">
-            <AccordionTrigger className="py-2.5 hover:no-underline">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold">{t?.nome ?? "—"}</span>
-                {t?.sigla && (
-                  <Badge variant="secondary" className="text-xs">
-                    {t.sigla}
-                  </Badge>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {advs.length} advogado{advs.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <ul className="flex flex-wrap gap-1.5 pb-2">
-                {advs.map((a) => (
-                  <li key={a.id} className="rounded-md border bg-muted/40 px-2 py-1 text-xs">
-                    {a.nome}
-                  </li>
-                ))}
-              </ul>
-            </AccordionContent>
-          </AccordionItem>
-        );
-      })}
-    </Accordion>
+    <ScrollArea className="mt-3 h-[400px] pr-3">
+      <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
+        {entries.map(([tid, advs]) => {
+          const t = tribunalById.get(tid);
+          return (
+            <AccordionItem key={tid} value={tid} className="rounded-lg border px-3">
+              <AccordionTrigger className="py-2.5 hover:no-underline">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold">{t?.nome ?? "—"}</span>
+                  {t?.sigla && (
+                    <Badge variant="secondary" className="text-xs">
+                      {t.sigla}
+                    </Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {advs.length} advogado{advs.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <ul className="flex flex-wrap gap-1.5 pb-2">
+                  {advs.map((a) => (
+                    <li key={a.id} className="rounded-md border bg-muted/40 px-2 py-1 text-xs">
+                      {a.nome}
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </ScrollArea>
   );
 }
