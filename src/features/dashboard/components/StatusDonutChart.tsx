@@ -66,6 +66,8 @@ export function StatusDonutChart({ data, activeStatus, onSliceClick }: StatusDon
               `${value} (${total ? Math.round((Number(value) / total) * 100) : 0}%)`,
               name,
             ]}
+            cursor={false}
+            wrapperStyle={{ zIndex: 50, pointerEvents: "none" }}
             contentStyle={{
               background: "var(--popover)",
               border: "1px solid var(--border)",
