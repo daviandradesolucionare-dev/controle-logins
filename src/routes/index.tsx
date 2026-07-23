@@ -297,7 +297,7 @@ function Dashboard() {
                       : "Nenhum tribunal encontrado para essa busca."}
                   </p>
                 ) : (
-                  <ScrollArea className="h-[400px] pr-3" aria-label="Progresso por tribunal">
+                  <ScrollArea className="max-h-[430px] pr-3" aria-label="Progresso por tribunal">
                     <TribunalHeatmap
                       data={progressoPorTribunalFiltrado}
                       onCellClick={(item) =>
