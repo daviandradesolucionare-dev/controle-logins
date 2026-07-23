@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type UserProfileData } from "@/lib/profile";
+import { getAvatarDisplayUrl } from "@/lib/profile";
 import { useProfileQuery } from "@/lib/use-profile-query";
 import { cn } from "@/lib/utils";
 
@@ -67,9 +67,10 @@ export function AppNav() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profileData } = useProfileQuery(user);
-  const profile: Pick<UserProfileData, "name" | "photoUrl"> = profileData
-    ? { name: profileData.name, photoUrl: profileData.photoUrl }
-    : { name: user?.user_metadata?.full_name || "", photoUrl: null };
+  const profile = {
+    name: profileData?.name || user?.user_metadata?.full_name || "",
+    avatarUrl: getAvatarDisplayUrl(profileData) ?? null,
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -135,7 +136,7 @@ export function AppNav() {
                   >
                     <Avatar className="h-9 w-9">
                       <AvatarImage
-                        src={profile.photoUrl ?? undefined}
+                        src={profile.avatarUrl ?? undefined}
                         alt={profile.name || user.email || "Usuário"}
                       />
                       <AvatarFallback className="bg-primary/10 text-primary">

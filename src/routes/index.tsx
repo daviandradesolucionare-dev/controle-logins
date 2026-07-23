@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Building2, CheckCircle2, Clock, XCircle, ArrowRight, Loader2 } from "lucide-react";
@@ -15,6 +15,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { CardSearchInput } from "@/features/dashboard/components/CardSearchInput";
+import { StatusDonutChart } from "@/features/dashboard/components/StatusDonutChart";
+import { TribunalHeatmap } from "@/features/dashboard/components/TribunalHeatmap";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -25,6 +27,7 @@ const EMPTY_TRIBUNAIS: Tribunal[] = [];
 const EMPTY_ADVOGADOS: Advogado[] = [];
 
 function Dashboard() {
+  const navigate = useNavigate();
   const [busca, setBusca] = useState("");
   const [statusEmFoco, setStatusEmFoco] = useState("Todos");
   const [buscaPanorama, setBuscaPanorama] = useState("");
@@ -240,37 +243,14 @@ function Dashboard() {
                   </p>
                 ) : (
                   <>
-                    <div className="space-y-3 py-4">
-                      {statusChartData.map((item) => {
-                        const percent = advogados.length
-                          ? Math.round((item.total / advogados.length) * 100)
-                          : 0;
-                        const active = statusEmFoco === "Todos" || statusEmFoco === item.status;
-                        return (
-                          <button
-                            key={item.status}
-                            type="button"
-                            onClick={() => setStatusEmFoco(item.status)}
-                            className="w-full text-left"
-                            aria-pressed={statusEmFoco === item.status}
-                          >
-                            <div className="mb-1 flex justify-between text-sm">
-                              <span>{item.status}</span>
-                              <span className="font-semibold">
-                                {item.total} · {percent}%
-                              </span>
-                            </div>
-                            <div className="h-3 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className={`${item.color} h-full rounded-full transition-all ${active ? "opacity-100" : "opacity-30"}`}
-                                style={{ width: `${percent}%` }}
-                              />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex flex-wrap justify-center gap-2">
+                    <StatusDonutChart
+                      data={statusChartData}
+                      activeStatus={statusEmFoco}
+                      onSliceClick={(status) =>
+                        setStatusEmFoco((prev) => (prev === status ? "Todos" : status))
+                      }
+                    />
+                    <div className="mt-3 flex flex-wrap justify-center gap-2">
                       <Button
                         size="sm"
                         variant={statusEmFoco === "Todos" ? "secondary" : "ghost"}
@@ -317,45 +297,31 @@ function Dashboard() {
                   </p>
                 ) : (
                   <div
-                    className="max-h-[400px] space-y-4 overflow-y-auto py-2 pr-1"
+                    className="max-h-[400px] overflow-y-auto py-2 pr-1"
                     role="region"
                     aria-label="Progresso por tribunal"
                     tabIndex={0}
                   >
-                    {progressoPorTribunalFiltrado.map((item) => {
-                      const okPercent = Math.round((item.ok / (item.ok + item.pendente)) * 100);
-                      return (
-                        <div
-                          key={item.tribunal}
-                          title={`${item.tribunal}: ${item.ok} OK e ${item.pendente} pendente(s)`}
-                        >
-                          <div className="mb-1 flex justify-between gap-3 text-sm">
-                            <span className="truncate font-medium">{item.nomeCurto}</span>
-                            <span className="shrink-0 text-muted-foreground">
-                              {item.ok}/{item.ok + item.pendente} OK
-                            </span>
-                          </div>
-                          <div className="flex h-3 overflow-hidden rounded-full bg-amber-500/80">
-                            <div
-                              className="bg-emerald-500 transition-all"
-                              style={{ width: `${okPercent}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <TribunalHeatmap
+                      data={progressoPorTribunalFiltrado}
+                      onCellClick={(item) =>
+                        navigate({ to: "/tribunais", search: { q: item.tribunal } })
+                      }
+                    />
                   </div>
                 )}
                 {progressoPorTribunalFiltrado.length > 0 && (
-                  <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
-                    <span>
-                      <i className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-500" />
-                      OK
+                  <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>Menos concluído</span>
+                    <span className="flex gap-0.5">
+                      <i className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                      <i className="h-2.5 w-2.5 rounded-sm bg-red-400" />
+                      <i className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
+                      <i className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
+                      <i className="h-2.5 w-2.5 rounded-sm bg-emerald-400" />
+                      <i className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
                     </span>
-                    <span>
-                      <i className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber-500" />
-                      Pendente
-                    </span>
+                    <span>Mais concluído</span>
                   </div>
                 )}
               </CardContent>

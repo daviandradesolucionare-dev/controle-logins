@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Loader2,
   Lock,
@@ -33,6 +33,7 @@ import {
 } from "@/lib/profile";
 import { useInvalidateProfile, useProfileQuery } from "@/lib/use-profile-query";
 import { supabase } from "@/lib/supabase";
+import { ProfilePhotoModal } from "@/components/profile-photo-modal";
 
 export const Route = createFileRoute("/configuracoes")({
   ssr: false,
@@ -48,6 +49,11 @@ function ConfiguracoesPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [avatarType, setAvatarType] = useState<"image" | "gif">("image");
+  const [gifPreviewUrl, setGifPreviewUrl] = useState<string | null>(null);
+  const [gifUrl, setGifUrl] = useState<string | null>(null);
+  const [gifId, setGifId] = useState<string | null>(null);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -77,6 +83,10 @@ function ConfiguracoesPage() {
     setName(profileData.name);
     setEmail(profileData.email);
     setPhotoUrl(profileData.photoUrl || user.user_metadata?.avatar_url || null);
+    setAvatarType(profileData.avatarType);
+    setGifPreviewUrl(profileData.gifPreviewUrl || profileData.gifUrl);
+    setGifUrl(profileData.gifUrl);
+    setGifId(profileData.gifId);
   }, [profileData, user]);
 
   useEffect(() => {
@@ -91,35 +101,26 @@ function ConfiguracoesPage() {
       .catch((error: Error) => toast.error("Não foi possível carregar usuários: " + error.message));
   }, [isAdmin, tab]);
 
-  const handlePhotoUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!user) return;
-    if (
-      !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
-      file.size > 5 * 1024 * 1024
-    ) {
-      toast.error("Envie uma imagem PNG, JPG ou WEBP de até 5 MB.");
-      return;
+  const handleAvatarSaved = async (result: {
+    photoUrl?: string | null;
+    avatarType: "image" | "gif";
+    gifUrl?: string | null;
+    gifPreviewUrl?: string | null;
+    gifId?: string | null;
+  }) => {
+    setAvatarType(result.avatarType);
+    if (result.avatarType === "image") {
+      setPhotoUrl(result.photoUrl ?? null);
+      setGifPreviewUrl(null);
+      setGifUrl(null);
+      setGifId(null);
+    } else {
+      setPhotoUrl(null);
+      setGifPreviewUrl(result.gifPreviewUrl ?? result.gifUrl ?? null);
+      setGifUrl(result.gifUrl ?? null);
+      setGifId(result.gifId ?? null);
     }
-    const extension = file.name.split(".").pop()?.toLowerCase() || "image";
-    const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
-    supabase.storage
-      .from("avatars")
-      .upload(path, file, { contentType: file.type, upsert: false })
-      .then(async ({ error }) => {
-        if (error) throw error;
-        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-        setPhotoUrl(data.publicUrl);
-        // Persiste imediatamente para que a foto não se perca se o usuário
-        // navegar/atualizar a página antes de clicar em "Salvar alterações".
-        await saveProfile({ id: user.id, name, photoUrl: data.publicUrl });
-        // Atualiza o cache compartilhado para que o header e outras telas
-        // reflitam a nova foto imediatamente, sem precisar recarregar.
-        await invalidateProfile(user.id);
-        toast.success("Foto enviada e salva.");
-      })
-      .catch((error: Error) => toast.error("Não foi possível enviar a foto: " + error.message));
+    if (user) await invalidateProfile(user.id);
   };
 
   const handleSaveProfile = async () => {
@@ -135,7 +136,15 @@ function ConfiguracoesPage() {
     }
 
     try {
-      await saveProfile({ id: user.id, name, photoUrl });
+      await saveProfile({
+        id: user.id,
+        name,
+        photoUrl,
+        avatarType,
+        gifUrl,
+        gifPreviewUrl,
+        gifId,
+      });
       await invalidateProfile(user.id);
     } catch (error) {
       setSaving(false);
@@ -266,30 +275,50 @@ function ConfiguracoesPage() {
           <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
             <Card className="p-6">
               <div className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border bg-muted/50">
-                  {photoUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setPhotoModalOpen(true)}
+                  className="group relative mb-4 h-24 w-24 overflow-hidden rounded-full border bg-muted/50"
+                  aria-label="Alterar foto de perfil"
+                >
+                  {avatarType === "gif" && gifPreviewUrl ? (
+                    <img
+                      src={gifPreviewUrl}
+                      alt="Avatar animado"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : photoUrl ? (
                     <img
                       src={photoUrl}
                       alt="Foto de perfil"
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <UserCircle2 className="h-14 w-14 text-muted-foreground" />
+                    <div className="flex h-full w-full items-center justify-center">
+                      <UserCircle2 className="h-14 w-14 text-muted-foreground" />
+                    </div>
                   )}
-                </div>
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent">
-                  <Upload className="h-4 w-4" />
-                  <span>Enviar foto</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
-                  />
-                </label>
-                <p className="mt-3 text-xs text-muted-foreground">PNG, JPG ou WEBP até 5MB.</p>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Upload className="h-5 w-5 text-white" />
+                  </div>
+                </button>
+                <Button variant="outline" size="sm" onClick={() => setPhotoModalOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Alterar foto de perfil
+                </Button>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Imagem estática ou GIF animado.
+                </p>
               </div>
             </Card>
+
+            <ProfilePhotoModal
+              open={photoModalOpen}
+              onOpenChange={setPhotoModalOpen}
+              userId={user?.id ?? ""}
+              name={name}
+              onSaved={handleAvatarSaved}
+            />
 
             <Card className="p-6">
               <div className="space-y-4">

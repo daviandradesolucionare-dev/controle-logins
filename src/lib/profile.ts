@@ -1,10 +1,16 @@
 import { supabase } from "@/lib/supabase";
 
+export type AvatarType = "image" | "gif";
+
 export interface UserProfileData {
   id: string;
   name: string;
   email: string;
   photoUrl: string | null;
+  avatarType: AvatarType;
+  gifUrl: string | null;
+  gifPreviewUrl: string | null;
+  gifId: string | null;
 }
 
 export interface AccessRequest {
@@ -40,7 +46,15 @@ type SystemUserRow = {
   created_at: string;
 };
 
-type ProfileRow = { id: string; display_name: string; avatar_url: string | null };
+type ProfileRow = {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
+  avatar_type: AvatarType | null;
+  avatar_gif_id: string | null;
+  avatar_gif_url: string | null;
+  avatar_gif_preview_url: string | null;
+};
 type AccessRequestRow = {
   id: string;
   name: string;
@@ -78,6 +92,10 @@ function getFallbackProfile(input: {
       name: input.fallbackName || "",
       email: input.email || "",
       photoUrl: null,
+      avatarType: "image",
+      gifUrl: null,
+      gifPreviewUrl: null,
+      gifId: null,
     };
   }
 
@@ -95,6 +113,10 @@ function getFallbackProfile(input: {
         name: stored.name || input.fallbackName || "",
         email: input.email || stored.email || "",
         photoUrl: typeof stored.photoUrl === "string" ? stored.photoUrl : null,
+        avatarType: "image",
+        gifUrl: null,
+        gifPreviewUrl: null,
+        gifId: null,
       };
     }
   } catch {
@@ -106,6 +128,10 @@ function getFallbackProfile(input: {
     name: input.fallbackName || "",
     email: input.email || "",
     photoUrl: null,
+    avatarType: "image",
+    gifUrl: null,
+    gifPreviewUrl: null,
+    gifId: null,
   };
 }
 
@@ -125,7 +151,9 @@ export async function getProfile(input: {
 }): Promise<UserProfileData> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,display_name,avatar_url")
+    .select(
+      "id,display_name,avatar_url,avatar_type,avatar_gif_id,avatar_gif_url,avatar_gif_preview_url",
+    )
     .eq("id", input.id)
     .maybeSingle();
   if (error) {
@@ -139,21 +167,33 @@ export async function getProfile(input: {
     throw error;
   }
   const row = data as ProfileRow | null;
-  const profile = {
+  const profile: UserProfileData = {
     id: input.id,
     name: row?.display_name || input.fallbackName || "",
     email: input.email || "",
     photoUrl: row?.avatar_url || null,
+    avatarType: row?.avatar_type === "gif" ? "gif" : "image",
+    gifUrl: row?.avatar_gif_url || null,
+    gifPreviewUrl: row?.avatar_gif_preview_url || null,
+    gifId: row?.avatar_gif_id || null,
   };
   saveFallbackProfile(profile);
   return profile;
 }
 
-export async function saveProfile(profile: Pick<UserProfileData, "id" | "name" | "photoUrl">) {
+export async function saveProfile(
+  profile: Pick<UserProfileData, "id" | "name" | "photoUrl"> &
+    Partial<Pick<UserProfileData, "avatarType" | "gifUrl" | "gifPreviewUrl" | "gifId">>,
+) {
+  const avatarType = profile.avatarType ?? "image";
   const { error } = await supabase.from("profiles").upsert({
     id: profile.id,
     display_name: profile.name.trim(),
     avatar_url: profile.photoUrl,
+    avatar_type: avatarType,
+    avatar_gif_id: avatarType === "gif" ? (profile.gifId ?? null) : null,
+    avatar_gif_url: avatarType === "gif" ? (profile.gifUrl ?? null) : null,
+    avatar_gif_preview_url: avatarType === "gif" ? (profile.gifPreviewUrl ?? null) : null,
     updated_at: new Date().toISOString(),
   });
   if (error) {
@@ -296,6 +336,13 @@ export async function setUserAdminRole(userId: string, makeAdmin: boolean) {
   });
   if (error) throw new Error(await extractFunctionErrorMessage(error));
   if (!data?.ok) throw new Error("Não foi possível atualizar a permissão do usuário.");
+}
+
+export function getAvatarDisplayUrl(
+  profile: Pick<UserProfileData, "avatarType" | "photoUrl" | "gifUrl"> | null | undefined,
+): string | null {
+  if (!profile) return null;
+  return profile.avatarType === "gif" ? profile.gifUrl : profile.photoUrl;
 }
 
 export function getAccessRequestActionState(request: AccessRequest): AccessRequestActionState {
