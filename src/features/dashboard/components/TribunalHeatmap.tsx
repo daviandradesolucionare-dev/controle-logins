@@ -32,7 +32,7 @@ export function TribunalHeatmap({ data, onCellClick }: TribunalHeatmapProps) {
   }
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {data.map((item) => {
         const total = item.ok + item.pendente;
         const percent = total ? Math.round((item.ok / total) * 100) : 0;
@@ -42,10 +42,14 @@ export function TribunalHeatmap({ data, onCellClick }: TribunalHeatmapProps) {
             type="button"
             onClick={() => onCellClick(item)}
             title={`${item.tribunal}: ${item.ok}/${total} concluídos (${percent}%)`}
-            className={`group relative aspect-square rounded-md ${colorForPercent(percent)} transition-transform duration-150 hover:z-10 hover:scale-110 hover:shadow-lg focus-visible:z-10 focus-visible:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+            className={`group relative flex h-24 flex-col items-center justify-center gap-1 rounded-lg p-2 text-center ${colorForPercent(percent)} transition-transform duration-150 hover:z-10 hover:scale-[1.04] hover:shadow-lg focus-visible:z-10 focus-visible:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
           >
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center px-0.5 text-center text-[10px] font-semibold leading-tight text-white drop-shadow-sm">
+            <span className="line-clamp-2 break-words text-xs font-semibold leading-tight text-white drop-shadow-sm">
               {item.nomeCurto}
+            </span>
+            <span className="text-lg font-bold text-white drop-shadow-sm">{percent}%</span>
+            <span className="text-[10px] text-white/85">
+              {item.ok}/{total} OK
             </span>
           </button>
         );
